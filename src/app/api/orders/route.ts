@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
-import { withErrorHandler } from '@/lib/errors'
+import { withErrorHandler, ValidationError } from '@/lib/errors'
+import { emailQueue } from '@/lib/email/queue'
 
 export const GET = withErrorHandler(async (request: Request) => {
   const session = await requireAuth()
@@ -67,6 +68,7 @@ export const POST = withErrorHandler(async (request: Request) => {
   
   const scheduledDate = new Date(`${body.scheduledDate}T${body.scheduledTime || '12:00'}`)
   
+  // Opprett ordre med customer info
   const order = await prisma.order.create({
     data: {
       customerId: body.customerId,
@@ -76,12 +78,50 @@ export const POST = withErrorHandler(async (request: Request) => {
       priority: body.priority || 'NORMAL',
       status: 'PENDING',
       companyId: session.user.companyId,
-      createdById: session.user.id
+      createdById: session.user.id,
+      photographerId: body.photographerId
     },
     include: {
-      customer: true
+      customer: true,
+      photographer: true
     }
   })
+  
+  // Send ordrebekreftelse email
+  try {
+    await emailQueue.send({
+      type: 'order-confirmation',
+      to: order.customer.email,
+      subject: `Ordrebekreftelse #${order.orderNumber}`,
+      customerName: order.customer.name,
+      orderNumber: order.orderNumber,
+      propertyAddress: order.propertyAddress,
+      scheduledDate: order.scheduledDate,
+      photographerName: order.photographer?.name
+    })
+  } catch (error) {
+    console.error('Failed to send order confirmation email:', error)
+    // Ikke la email-feil stoppe ordre-opprettelsen
+  }
+  
+  // Send varsel til fotograf hvis tildelt
+  if (order.photographer) {
+    try {
+      await emailQueue.send({
+        type: 'photographer-assigned',
+        to: order.photographer.email,
+        subject: `Nytt oppdrag: ${order.propertyAddress}`,
+        photographerName: order.photographer.name,
+        orderNumber: order.orderNumber,
+        propertyAddress: order.propertyAddress,
+        scheduledDate: order.scheduledDate,
+        customerName: order.customer.name,
+        customerPhone: order.customer.phone || undefined
+      })
+    } catch (error) {
+      console.error('Failed to send photographer notification:', error)
+    }
+  }
   
   return NextResponse.json(order)
 })

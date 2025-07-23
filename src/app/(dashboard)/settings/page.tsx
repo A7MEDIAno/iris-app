@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { showToast } from '../../../components/ui/Toast'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('company')
@@ -243,6 +244,60 @@ export default function SettingsPage() {
                 <h2 className="text-xl font-semibold text-gray-200 mb-6">E-postvarsler</h2>
                 
                 <div className="space-y-6">
+                  {/* Test Email Section */}
+                  <div className="bg-dark-800 rounded-lg p-6">
+                    <h3 className="font-semibold text-gray-200 mb-4">Test E-poster</h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Send test-versjoner av system e-poster for å sjekke at alt fungerer.
+                    </p>
+                    
+                    <div className="flex gap-4">
+                      <select 
+                        id="emailType"
+                        className="input-field flex-1"
+                        defaultValue="order-confirmation"
+                      >
+                        <option value="order-confirmation">Ordrebekreftelse</option>
+                        <option value="order-completed">Ordre fullført</option>
+                      </select>
+                      
+                      <button
+                        onClick={async () => {
+                          const emailType = (document.getElementById('emailType') as HTMLSelectElement).value
+                          
+                          try {
+                            const res = await fetch('/api/test-email', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ type: emailType })
+                            })
+                            
+                            const data = await res.json()
+                            
+                            if (res.ok) {
+                              showToast({
+                                type: 'success',
+                                title: 'Test e-post sendt',
+                                message: data.message
+                              })
+                            } else {
+                              throw new Error(data.error)
+                            }
+                          } catch (error: any) {
+                            showToast({
+                              type: 'error',
+                              title: 'Kunne ikke sende test e-post',
+                              message: error.message
+                            })
+                          }
+                        }}
+                        className="btn-secondary"
+                      >
+                        Send test
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-gray-200">Ordrebekreftelse</p>

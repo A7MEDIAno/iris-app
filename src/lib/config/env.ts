@@ -6,6 +6,7 @@ type EnvConfig = {
   NEXTAUTH_URL: string
   NODE_ENV: 'development' | 'production' | 'test'
   NEXT_PUBLIC_APP_URL: string
+  RESEND_API_KEY: string
 }
 
 function getEnvVar(key: string, fallback?: string): string {
@@ -24,7 +25,8 @@ export const env: EnvConfig = {
   NEXTAUTH_SECRET: getEnvVar('NEXTAUTH_SECRET', 'dev-secret-CHANGE-IN-PRODUCTION'),
   NEXTAUTH_URL: getEnvVar('NEXTAUTH_URL', 'http://localhost:3000'),
   NODE_ENV: (process.env.NODE_ENV || 'development') as EnvConfig['NODE_ENV'],
-  NEXT_PUBLIC_APP_URL: getEnvVar('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
+  NEXT_PUBLIC_APP_URL: getEnvVar('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'),
+  RESEND_API_KEY: getEnvVar('RESEND_API_KEY')
 }
 
 // Valider ved oppstart

@@ -9,6 +9,9 @@ interface ImageWithTags {
   url: string
   thumbnailUrl?: string
   originalName: string
+  size: number
+  width?: number | null
+  height?: number | null
   tags: Array<{
     id: string
     tag: {
@@ -24,6 +27,7 @@ interface ImageGalleryProps {
   images: ImageWithTags[]
   onTagUpdate: (imageId: string, tagIds: string[]) => Promise<void>
   onImageSelect?: (images: ImageWithTags[]) => void
+  onImageDelete?: (imageId: string) => Promise<void>
   availableTags: Array<{ id: string; name: string; icon?: string; category?: string }>
 }
 
@@ -31,12 +35,14 @@ export function ImageGallery({
   images, 
   onTagUpdate, 
   onImageSelect,
+  onImageDelete,
   availableTags 
 }: ImageGalleryProps) {
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set())
   const [editingTags, setEditingTags] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [filterTag, setFilterTag] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
   // Grupper tags etter kategori
   const tagsByCategory = availableTags.reduce((acc, tag) => {
@@ -84,6 +90,38 @@ export function ImageGallery({
     })
   }
 
+  async function handleDeleteImage(imageId: string) {
+    if (!onImageDelete || !confirm('Er du sikker på at du vil slette dette bildet?')) {
+      return
+    }
+
+    setIsDeleting(imageId)
+    try {
+      await onImageDelete(imageId)
+      showToast({
+        type: 'success',
+        title: 'Bilde slettet',
+        message: 'Bildet ble slettet'
+      })
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Kunne ikke slette bilde',
+        message: 'Prøv igjen senere'
+      })
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  function formatFileSize(bytes: number) {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
   return (
     <div>
       {/* Toolbar */}
@@ -97,7 +135,7 @@ export function ImageGallery({
               onChange={(e) => setFilterTag(e.target.value || null)}
               className="input-field text-sm"
             >
-              <option value="">Alle bilder</option>
+              <option value="">Alle bilder ({images.length})</option>
               {Object.entries(tagsByCategory).map(([category, tags]) => (
                 <optgroup key={category} label={category.charAt(0).toUpperCase() + category.slice(1)}>
                   {tags.map(tag => (
@@ -154,6 +192,24 @@ export function ImageGallery({
                 />
               </div>
 
+              {/* Delete button */}
+              <button
+                onClick={() => handleDeleteImage(image.id)}
+                disabled={isDeleting === image.id}
+                className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 hover:bg-red-700 p-1.5 rounded"
+              >
+                {isDeleting === image.id ? (
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                )}
+              </button>
+
               {/* Image */}
               <div className="relative aspect-square bg-dark-800 rounded-lg overflow-hidden">
                 <Image
@@ -162,7 +218,17 @@ export function ImageGallery({
                   fill
                   className="object-cover cursor-pointer hover:scale-105 transition-transform"
                   onClick={() => window.open(image.url, '_blank')}
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 16vw"
                 />
+              </div>
+
+              {/* Info */}
+              <div className="mt-2">
+                <p className="text-xs text-gray-400 truncate">{image.originalName}</p>
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(image.size)}
+                  {image.width && image.height && ` • ${image.width}×${image.height}`}
+                </p>
               </div>
 
               {/* Tags */}
@@ -235,26 +301,40 @@ export function ImageGallery({
                   alt={image.originalName}
                   fill
                   className="object-cover"
+                  sizes="64px"
                 />
               </div>
               
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-200">{image.originalName}</p>
-                <div className="flex gap-2 mt-1">
-                  {image.tags.map(({ tag }) => (
-                    <span key={tag.id} className="text-xs text-gray-400">
-                      {tag.icon} {tag.name}
-                    </span>
-                  ))}
+                <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
+                  <span>{formatFileSize(image.size)}</span>
+                  {image.width && image.height && <span>{image.width}×{image.height}</span>}
+                  <div className="flex gap-2">
+                    {image.tags.map(({ tag }) => (
+                      <span key={tag.id}>
+                        {tag.icon} {tag.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
               
-              <button
-                onClick={() => window.open(image.url, '_blank')}
-                className="text-sm text-nordvik-400 hover:text-nordvik-300"
-              >
-                Se full størrelse
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.open(image.url, '_blank')}
+                  className="text-sm text-nordvik-400 hover:text-nordvik-300"
+                >
+                  Se full størrelse
+                </button>
+                <button
+                  onClick={() => handleDeleteImage(image.id)}
+                  disabled={isDeleting === image.id}
+                  className="text-sm text-red-400 hover:text-red-300"
+                >
+                  {isDeleting === image.id ? 'Sletter...' : 'Slett'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

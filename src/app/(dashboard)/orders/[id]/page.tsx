@@ -29,6 +29,9 @@ interface OrderDetail {
     url: string
     thumbnailUrl?: string
     originalName: string
+    size: number
+    width?: number | null
+    height?: number | null
     status: string
     tags: Array<{
       id: string
@@ -128,6 +131,32 @@ export default function OrderDetailPage() {
       await loadOrder()
     } catch (error) {
       console.error('Error updating tags:', error)
+      throw error
+    }
+  }
+
+  async function handleImageDelete(imageId: string) {
+    try {
+      const res = await fetch(`/api/images/upload?id=${imageId}`, {
+        method: 'DELETE'
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to delete image')
+      }
+      
+      await loadOrder() // Refresh order data
+      
+      // Fjern fra selectedImages hvis den var valgt
+      setSelectedImages(prev => prev.filter(img => img.id !== imageId))
+    } catch (error: any) {
+      console.error('Error deleting image:', error)
+      showToast({
+        type: 'error',
+        title: 'Kunne ikke slette bilde',
+        message: error.message || 'Prøv igjen senere'
+      })
       throw error
     }
   }
@@ -429,6 +458,7 @@ export default function OrderDetailPage() {
                   images={order.images}
                   onTagUpdate={handleTagUpdate}
                   onImageSelect={setSelectedImages}
+                  onImageDelete={handleImageDelete}
                   availableTags={availableTags}
                 />
               </div>
