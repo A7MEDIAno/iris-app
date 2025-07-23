@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       .sort((a: any, b: any) => b.revenue - a.revenue)
       .slice(0, 5)
 
-    // Top fotografer (hvis vi har photographer relasjon)
+    // Top fotografer
     const photographerOrders = await prisma.order.findMany({
       where: {
         createdAt: { gte: startDate },
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       .sort((a: any, b: any) => b.revenue - a.revenue)
       .slice(0, 5)
 
-    // Månedlig oversikt (siste 6 måneder)
+    // Månedlig data - forenklet versjon
     const monthlyData = []
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des']
     
@@ -154,20 +154,15 @@ export async function GET(request: NextRequest) {
       const monthEnd = new Date(monthStart)
       monthEnd.setMonth(monthEnd.getMonth() + 1)
       
-      const monthOrders = await prisma.order.findMany({
-        where: {
-          createdAt: {
-            gte: monthStart,
-            lt: monthEnd
-          }
-        },
-        include: {
-          orderItems: true
-        }
+      const monthOrders = currentOrders.filter(order => {
+        const orderDate = new Date(order.createdAt)
+        return orderDate >= monthStart && orderDate < monthEnd
       })
       
       const monthRevenue = monthOrders.reduce((sum, order) => 
-        sum + order.orderItems.reduce((itemSum, item) => itemSum + (item.unitPrice * item.quantity), 0), 0
+        sum + order.orderItems.reduce((itemSum, item) => 
+          itemSum + (item.unitPrice * item.quantity), 0
+        ), 0
       )
       
       monthlyData.push({
@@ -202,7 +197,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching analytics:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch analytics' },
+      { error: 'Failed to fetch analytics', details: error.message },
       { status: 500 }
     )
   }
