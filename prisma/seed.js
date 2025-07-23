@@ -1,11 +1,12 @@
 const { PrismaClient } = require('@prisma/client')
+const bcrypt = require('bcryptjs')
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // Slett eksisterende data først (valgfritt)
+  // Slett eksisterende data
   await prisma.order.deleteMany()
   await prisma.customer.deleteMany()
   await prisma.user.deleteMany()
@@ -23,32 +24,36 @@ async function main() {
   })
   console.log('✅ Created company')
 
+  // Hash passwords
+  const hashedPassword = await bcrypt.hash('demo123', 10)
+
   // Opprett admin user
   const admin = await prisma.user.create({
     data: {
       email: 'admin@a7media.no',
       name: 'Mats Lønne',
-      password: 'temp123',
+      password: hashedPassword,
       role: 'ADMIN',
       companyId: company.id,
       phone: '+47 123 45 678'
     }
   })
-  console.log('✅ Created admin user')
+  console.log('✅ Created admin user (password: demo123)')
 
   // Opprett fotograf
   const photographer = await prisma.user.create({
     data: {
       email: 'fotograf@a7media.no',
       name: 'Andreas Hopperstad',
-      password: 'temp123',
+      password: hashedPassword,
       role: 'PHOTOGRAPHER',
       companyId: company.id,
       phone: '+47 987 65 432'
     }
   })
-  console.log('✅ Created photographer')
+  console.log('✅ Created photographer (password: demo123)')
 
+  // Resten av seed forblir lik...
   // Opprett customers
   const customer1 = await prisma.customer.create({
     data: {
@@ -112,7 +117,10 @@ async function main() {
   })
   console.log('✅ Created test orders')
 
-  console.log('🎉 Seeding completed!')
+  console.log('\n🎉 Seeding completed!')
+  console.log('\n📧 Test users:')
+  console.log('   Admin: admin@a7media.no / demo123')
+  console.log('   Fotograf: fotograf@a7media.no / demo123')
 }
 
 main()
