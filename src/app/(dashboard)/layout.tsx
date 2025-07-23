@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ToastContainer } from '../../components/ui/Toast'
 
 export default function DashboardLayout({
   children,
@@ -23,7 +24,7 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-dark-950">
-      {/* Sidebar - Pholio-inspirert */}
+      {/* Sidebar - samme som før */}
       <div className="w-64 sidebar">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-nordvik-400">IRiS</h1>
@@ -72,6 +73,9 @@ export default function DashboardLayout({
           {children}
         </div>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer />
     </div>
   )
 }
