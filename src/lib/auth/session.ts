@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { prisma } from '@/lib/db/prisma'
+import { prisma } from '../db/prisma'
 
 export async function getCurrentCompany() {
   try {

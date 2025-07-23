@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/db/prisma'
-import { setCompanySession } from '@/lib/auth/session'
+import { prisma } from '../../../../lib/db/prisma'
+import { getCurrentCompany } from '../../../../lib/auth/session'
 
 export async function POST(req: Request) {
   try {

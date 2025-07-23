@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { AssignPhotographerModal } from '@/components/orders/AssignPhotographerModal'
+import { AssignPhotographerModal } from '../../../components/orders/AssignPhotographerModal'
 
 export default function OrdersPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid')

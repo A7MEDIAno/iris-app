@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { Customer, Product } from '@/types'
+import type { Customer, Product } from '../../../../types'
 
 export default function NewOrderPage() {
   const router = useRouter()

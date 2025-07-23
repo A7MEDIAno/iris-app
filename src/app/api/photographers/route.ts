@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
-import { getCurrentCompany } from '@/lib/auth/session'
+import { prisma } from '../../../lib/db/prisma'
+import { getCurrentCompany } from '../../../lib/auth/session'
 import bcrypt from 'bcryptjs'
 
 export async function GET() {
