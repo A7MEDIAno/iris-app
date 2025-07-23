@@ -1,204 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../lib/db/prisma'
+import { prisma } from '@/lib/db/prisma'
+import { requireAuth } from '@/lib/auth'
+import { withErrorHandler } from '@/lib/errors'
 
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams
-    const dateRange = searchParams.get('range') || 'month'
-    
-    // Beregn datoer basert på range
-    const now = new Date()
-    let startDate = new Date()
-    let previousStartDate = new Date()
-    
-    switch(dateRange) {
-      case 'week':
-        startDate.setDate(now.getDate() - 7)
-        previousStartDate.setDate(now.getDate() - 14)
-        break
-      case 'month':
-        startDate.setMonth(now.getMonth() - 1)
-        previousStartDate.setMonth(now.getMonth() - 2)
-        break
-      case 'quarter':
-        startDate.setMonth(now.getMonth() - 3)
-        previousStartDate.setMonth(now.getMonth() - 6)
-        break
-      case 'year':
-        startDate.setFullYear(now.getFullYear() - 1)
-        previousStartDate.setFullYear(now.getFullYear() - 2)
-        break
-    }
+// Marker route som dynamic
+export const dynamic = 'force-dynamic'
 
-    // Hent ordre for perioden
-    const [currentOrders, previousOrders] = await Promise.all([
-      prisma.order.findMany({
-        where: {
-          createdAt: { gte: startDate }
-        },
-        include: {
-          orderItems: true,
-          customer: true
-        }
-      }),
-      prisma.order.findMany({
-        where: {
-          createdAt: {
-            gte: previousStartDate,
-            lt: startDate
-          }
-        },
-        include: {
-          orderItems: true
-        }
-      })
-    ])
-
-    // Beregn total omsetning
-    const currentRevenue = currentOrders.reduce((sum, order) => 
-      sum + order.orderItems.reduce((itemSum, item) => itemSum + (item.unitPrice * item.quantity), 0), 0
-    )
-    const previousRevenue = previousOrders.reduce((sum, order) => 
-      sum + order.orderItems.reduce((itemSum, item) => itemSum + (item.unitPrice * item.quantity), 0), 0
-    )
-
-    // Beregn vekst
-    const revenueGrowth = previousRevenue > 0 
-      ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
-      : 0
-
-    const orderGrowth = previousOrders.length > 0
-      ? ((currentOrders.length - previousOrders.length) / previousOrders.length) * 100
-      : 0
-
-    // Gjennomsnittlig ordreverdi
-    const avgOrderValue = currentOrders.length > 0 ? currentRevenue / currentOrders.length : 0
-    const prevAvgOrderValue = previousOrders.length > 0 ? previousRevenue / previousOrders.length : 0
-    const avgOrderGrowth = prevAvgOrderValue > 0
-      ? ((avgOrderValue - prevAvgOrderValue) / prevAvgOrderValue) * 100
-      : 0
-
-    // Ordre etter status
-    const ordersByStatus = {
-      pending: currentOrders.filter(o => o.status === 'PENDING').length,
-      assigned: currentOrders.filter(o => o.status === 'ASSIGNED').length,
-      inProgress: currentOrders.filter(o => o.status === 'IN_PROGRESS').length,
-      completed: currentOrders.filter(o => o.status === 'COMPLETED').length,
-      cancelled: currentOrders.filter(o => o.status === 'CANCELLED').length
-    }
-
-    // Top kunder
-    const customerStats = currentOrders.reduce((acc: any, order) => {
-      if (!acc[order.customerId]) {
-        acc[order.customerId] = {
-          id: order.customerId,
-          name: order.customer?.name || 'Ukjent',
-          orders: 0,
-          revenue: 0
-        }
+export const GET = withErrorHandler(async (request: NextRequest) => {
+  const session = await requireAuth()
+  
+  const { searchParams } = request.nextUrl
+  const period = searchParams.get('period') || '30'
+  
+  const daysAgo = parseInt(period)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - daysAgo)
+  
+  // Hent statistikk
+  const [
+    totalOrders,
+    completedOrders,
+    totalCustomers,
+    activePhotographers,
+    ordersByStatus,
+    ordersByPhotographer,
+    recentOrders
+  ] = await Promise.all([
+    // Total orders i perioden
+    prisma.order.count({
+      where: { 
+        companyId: session.user.companyId,
+        createdAt: { gte: startDate }
       }
-      acc[order.customerId].orders += 1
-      acc[order.customerId].revenue += order.orderItems.reduce((sum, item) => 
-        sum + (item.unitPrice * item.quantity), 0
-      )
-      return acc
-    }, {})
-
-    const topCustomers = Object.values(customerStats)
-      .sort((a: any, b: any) => b.revenue - a.revenue)
-      .slice(0, 5)
-
-    // Top fotografer
-    const photographerOrders = await prisma.order.findMany({
+    }),
+    
+    // Fullførte ordre
+    prisma.order.count({
+      where: { 
+        companyId: session.user.companyId,
+        status: 'COMPLETED',
+        createdAt: { gte: startDate }
+      }
+    }),
+    
+    // Unike kunder
+    prisma.customer.count({
+      where: { 
+        companyId: session.user.companyId,
+        createdAt: { gte: startDate }
+      }
+    }),
+    
+    // Aktive fotografer
+    prisma.user.count({
       where: {
-        createdAt: { gte: startDate },
-        photographerId: { not: null }
-      },
-      include: {
-        photographer: true,
-        orderItems: true
-      }
-    })
-
-    const photographerStats = photographerOrders.reduce((acc: any, order) => {
-      const photId = order.photographerId!
-      if (!acc[photId]) {
-        acc[photId] = {
-          id: photId,
-          name: order.photographer?.name || 'Ukjent',
-          orders: 0,
-          revenue: 0
+        companyId: session.user.companyId,
+        role: 'PHOTOGRAPHER',
+        orders: {
+          some: {
+            createdAt: { gte: startDate }
+          }
         }
       }
-      acc[photId].orders += 1
-      acc[photId].revenue += order.orderItems.reduce((sum, item) => 
-        sum + (item.unitPrice * item.quantity), 0
-      )
-      return acc
-    }, {})
-
-    const topPhotographers = Object.values(photographerStats)
-      .sort((a: any, b: any) => b.revenue - a.revenue)
-      .slice(0, 5)
-
-    // Månedlig data - forenklet versjon
-    const monthlyData = []
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des']
+    }),
     
-    for (let i = 5; i >= 0; i--) {
-      const monthStart = new Date()
-      monthStart.setMonth(now.getMonth() - i)
-      monthStart.setDate(1)
-      monthStart.setHours(0, 0, 0, 0)
-      
-      const monthEnd = new Date(monthStart)
-      monthEnd.setMonth(monthEnd.getMonth() + 1)
-      
-      const monthOrders = currentOrders.filter(order => {
-        const orderDate = new Date(order.createdAt)
-        return orderDate >= monthStart && orderDate < monthEnd
-      })
-      
-      const monthRevenue = monthOrders.reduce((sum, order) => 
-        sum + order.orderItems.reduce((itemSum, item) => 
-          itemSum + (item.unitPrice * item.quantity), 0
-        ), 0
-      )
-      
-      monthlyData.push({
-        month: monthNames[monthStart.getMonth()],
-        orders: monthOrders.length,
-        revenue: monthRevenue
-      })
-    }
-
-    return NextResponse.json({
-      revenue: {
-        current: currentRevenue,
-        previous: previousRevenue,
-        growth: revenueGrowth
+    // Ordre fordelt på status
+    prisma.order.groupBy({
+      by: ['status'],
+      where: { 
+        companyId: session.user.companyId,
+        createdAt: { gte: startDate }
       },
-      orders: {
-        current: currentOrders.length,
-        previous: previousOrders.length,
-        growth: orderGrowth
+      _count: true
+    }),
+    
+    // Ordre per fotograf
+    prisma.user.findMany({
+      where: {
+        companyId: session.user.companyId,
+        role: 'PHOTOGRAPHER'
       },
-      avgOrderValue: {
-        current: avgOrderValue,
-        previous: prevAvgOrderValue,
-        growth: avgOrderGrowth
+      select: {
+        name: true,
+        _count: {
+          select: {
+            orders: {
+              where: {
+                createdAt: { gte: startDate }
+              }
+            }
+          }
+        }
+      }
+    }),
+    
+    // Siste 10 ordre
+    prisma.order.findMany({
+      where: { 
+        companyId: session.user.companyId 
       },
-      ordersByStatus,
-      topCustomers,
-      topPhotographers,
-      monthlyData
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: true,
+        photographer: true
+      }
     })
-
-  } catch (error) {
-    console.error('Error fetching analytics:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch analytics', details: error.message },
-      { status: 500 }
-    )
-  }
-}
+  ])
+  
+  return NextResponse.json({
+    overview: {
+      totalOrders,
+      completedOrders,
+      totalCustomers,
+      activePhotographers,
+      completionRate: totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0
+    },
+    ordersByStatus: ordersByStatus.map(item => ({
+      status: item.status,
+      count: item._count
+    })),
+    ordersByPhotographer: ordersByPhotographer.map(photographer => ({
+      name: photographer.name,
+      count: photographer._count.orders
+    })),
+    recentOrders: recentOrders.map(order => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customer.name,
+      photographerName: order.photographer?.name,
+      status: order.status,
+      createdAt: order.createdAt
+    }))
+  })
+})

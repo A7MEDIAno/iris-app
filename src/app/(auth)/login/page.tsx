@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { showToast } from '@/components/ui/Toast'
 
-export default function LoginPage() {
+// Separer komponenten som bruker useSearchParams
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
@@ -118,5 +119,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Hoved-komponenten med Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-dark-950">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-nordvik-500"></div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
