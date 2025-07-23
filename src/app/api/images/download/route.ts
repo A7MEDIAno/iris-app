@@ -1,76 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/db/prisma'
-import archiver from 'archiver'
-import { Readable } from 'stream'
 
 export async function POST(request: NextRequest) {
   try {
-    const { imageIds, orderId } = await request.json()
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    const orderId = formData.get('orderId') as string
 
-    // Hent bilder
-    const images = await prisma.image.findMany({
-      where: {
-        id: { in: imageIds }
-      }
-    })
-
-    if (images.length === 0) {
+    if (!file || !orderId) {
       return NextResponse.json(
-        { error: 'No images found' },
-        { status: 404 }
+        { error: 'Missing file or orderId' },
+        { status: 400 }
       )
     }
 
-    // Opprett ZIP i minnet
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // Max kompresjon
-    })
-
-    const chunks: Buffer[] = []
-    
-    archive.on('data', (chunk) => {
-      chunks.push(chunk)
-    })
-
-    // Last ned og legg til bilder i ZIP
-    for (const image of images) {
-      try {
-        const response = await fetch(image.url)
-        if (!response.ok) continue
-        
-        const buffer = await response.arrayBuffer()
-        archive.append(Buffer.from(buffer), { 
-          name: image.originalName 
-        })
-      } catch (error) {
-        console.error(`Failed to download image ${image.id}:`, error)
-      }
+    // Sjekk filstørrelse (maks 10MB)
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File too large. Max 10MB allowed.' },
+        { status: 413 }
+      )
     }
 
-    // Fullfør arkivet
-    await archive.finalize()
-
-    // Vent på at alle data er skrevet
-    await new Promise((resolve) => {
-      archive.on('end', resolve)
-    })
-
-    // Kombiner chunks til en buffer
-    const zipBuffer = Buffer.concat(chunks)
-
-    // Returner ZIP som response
-    return new NextResponse(zipBuffer, {
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="order-${orderId}-images.zip"`
+    // For nå, lagre bare metadata i database
+    // I produksjon ville du laste opp til Cloudinary, S3, etc.
+    const image = await prisma.image.create({
+      data: {
+        orderId,
+        filename: file.name,
+        originalName: file.name,
+        url: `/api/placeholder-image?name=${encodeURIComponent(file.name)}`,
+        thumbnailUrl: `/api/placeholder-image?name=${encodeURIComponent(file.name)}&size=thumb`,
+        size: file.size,
+        mimeType: file.type,
+        uploadedBy: 'current-user-id', // Hardkodet for nå
+        status: 'UPLOADED'
+      },
+      include: {
+        tags: {
+          include: {
+            tag: true
+          }
+        }
       }
     })
 
+    return NextResponse.json(image)
+
   } catch (error: any) {
-    console.error('Error creating zip:', error)
+    console.error('Upload error:', error)
     return NextResponse.json(
-      { error: 'Failed to create zip', details: error.message },
+      { error: 'Failed to upload image', details: error.message },
       { status: 500 }
     )
   }
+}
+
+// Konfigurer maks body size
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
 }
