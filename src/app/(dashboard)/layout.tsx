@@ -10,58 +10,68 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
 
-  const menuItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { href: '/orders', label: 'Oppdrag', icon: '📸' },
-    { href: '/customers', label: 'Kunder', icon: '👥' },
-    { href: '/products', label: 'Produkter', icon: '📦' },
-    { href: '/photographers', label: 'Fotografer', icon: '👨‍💼' },
-    { href: '/analytics', label: 'Statistikk', icon: '📈' },
-    { href: '/settings', label: 'Innstillinger', icon: '⚙️' },
+  const navigation = [
+    { name: 'Oversikt', href: '/dashboard', icon: '📊' },
+    { name: 'Bestillinger', href: '/orders', icon: '📷' },
+    { name: 'Kunder', href: '/customers', icon: '🏢' },
+    { name: 'Fotografer', href: '/photographers', icon: '👥' },
+    { name: 'Produkter', href: '/products', icon: '📦' },
+    { name: 'Faktura', href: '/invoices', icon: '💰' },
+    { name: 'Statistikk', href: '/analytics', icon: '📈' },
+    { name: 'Innstillinger', href: '/settings', icon: '⚙️' },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
-        <div className="flex items-center justify-center h-16 border-b">
-          <span className="text-2xl font-bold text-indigo-600">iRiS</span>
+    <div className="flex h-screen bg-dark-950">
+      {/* Sidebar - Pholio-inspirert */}
+      <div className="w-64 sidebar">
+        <div className="p-6">
+          <h1 className="text-2xl font-bold text-nordvik-400">IRiS</h1>
+          <p className="text-sm text-gray-500 mt-1">A7 MEDIA</p>
         </div>
-        <nav className="mt-8">
-          {menuItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block px-6 py-3 text-gray-700 hover:bg-gray-100 transition-colors ${
-                pathname === item.href ? 'bg-indigo-50 text-indigo-600 border-r-4 border-indigo-600' : ''
-              }`}
-            >
-              <span className="mr-3">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
+        
+        <nav className="px-4 pb-6">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`
+                  flex items-center gap-3 px-4 py-3 mb-1 rounded-lg transition-all duration-200
+                  ${isActive 
+                    ? 'bg-nordvik-900 text-white' 
+                    : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
+                  }
+                `}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="font-medium">{item.name}</span>
+              </Link>
+            )
+          })}
         </nav>
 
-        {/* User info */}
-        <div className="absolute bottom-0 w-full p-4 border-t">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-              A7
+        {/* Bruker info nederst */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-dark-800">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-10 h-10 bg-nordvik-800 rounded-full flex items-center justify-center text-white font-semibold">
+              ML
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">A7 MEDIA</p>
+            <div>
+              <p className="text-sm font-medium text-gray-200">Mats Lønne</p>
               <p className="text-xs text-gray-500">Administrator</p>
             </div>
           </div>
         </div>
-      </aside>
+      </div>
 
-      {/* Main content */}
-      <main className="ml-64">
+      {/* Hovedinnhold */}
+      <div className="flex-1 overflow-auto">
         <div className="p-8">
           {children}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

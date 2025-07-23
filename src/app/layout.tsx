@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import "./globals.css"
 
 export const metadata: Metadata = {
   title: "IRiS - Intelligent Real Estate Imaging System",
@@ -12,7 +13,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="no">
-      <body>{children}</body>
+      <body className="antialiased">
+        {children}
+      </body>
     </html>
   )
 }
