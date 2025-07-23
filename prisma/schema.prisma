@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Company (foretak/firma)
+model Company {
+  id               String   @id @default(cuid())
+  name             String
+  orgNumber        String   @unique
+  subdomain        String   @unique
+  
+  // Abonnement
+  subscriptionTier String   @default("STANDARD")
+  storageUsedGB    Float    @default(0)
+  
+  // White-label
+  whitelabelTier   String?
+  whitelabelConfig Json?
+  
+  // Relasjoner
+  users            User[]
+  customers        Customer[]
+  products         Product[]
+  orders           Order[]
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// User (brukere - admin, fotograf, etc)
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  phone           String?
+  password        String
+  role            UserRole @default(PHOTOGRAPHER)
+  
+  company         Company  @relation(fields: [companyId], references: [id])
+  companyId       String
+  
+  // For kjøreplanlegging
+  baseAddress     String?
+  
+  // Relasjoner
+  assignedOrders  Order[]  @relation("AssignedPhotographer")
+  createdOrders   Order[]  @relation("CreatedBy")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  PHOTOGRAPHER
+  EDITOR
+}
+
+// Customer (meglerfirmaer)
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  orgNumber     String?
+  email         String
+  phone         String?
+  invoiceEmail  String?
+  
+  company       Company  @relation(fields: [companyId], references: [id])
+  companyId     String
+  
+  orders        Order[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Product (tjenester)
+model Product {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  sku             String?
+  
+  // Prising
+  priceExVat      Decimal
+  vatRate         Decimal  @default(25)
+  
+  // Kostnader
+  pke             Decimal  @default(0) // Produksjonskostnad Ekstern
+  pki             Decimal  @default(0) // Produksjonskostnad Intern
+  photographerFee Decimal  @default(0)
+  
+  company         Company  @relation(fields: [companyId], references: [id])
+  companyId       String
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Order (oppdrag)
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     Int         @default(autoincrement())
+  
+  // Status
+  status          OrderStatus @default(PENDING)
+  priority        Priority    @default(NORMAL)
+  
+  // Relasjoner
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  customerId      String
+  
+  photographer    User?       @relation("AssignedPhotographer", fields: [photographerId], references: [id])
+  photographerId  String?
+  
+  createdBy       User        @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById     String
+  
+  company         Company     @relation(fields: [companyId], references: [id])
+  companyId       String
+  
+  // Eiendomsinfo
+  propertyAddress String
+  propertyType    String?
+  scheduledDate   DateTime
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  EDITING
+  QUALITY_CONTROL
+  READY_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  NORMAL
+  HIGH
+  URGENT
+}
