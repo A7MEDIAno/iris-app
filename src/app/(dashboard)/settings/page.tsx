@@ -3,383 +3,471 @@
 import { useState } from 'react'
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'company' | 'users' | 'email' | 'integrations'>('company')
-  const [isLoading, setIsLoading] = useState(false)
-  const [message, setMessage] = useState({ type: '', text: '' })
-
-  // Company settings state
+  const [activeTab, setActiveTab] = useState('company')
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // Midlertidig state for forms
   const [companyData, setCompanyData] = useState({
-    name: 'A7 MEDIA',
-    orgNumber: '123 456 789',
+    name: 'A7 MEDIA AS',
+    orgNumber: '123456789',
+    address: 'Storgata 1',
+    postalCode: '0123',
+    city: 'Oslo',
+    phone: '+47 123 45 678',
     email: 'post@a7media.no',
-    phone: '+47 900 00 000',
-    address: 'Storgata 1, 0123 Oslo',
-    website: 'www.a7media.no',
-    logo: ''
+    website: 'www.a7media.no'
   })
 
-  // Email settings state
   const [emailSettings, setEmailSettings] = useState({
     orderConfirmation: true,
     orderCompleted: true,
-    orderCancelled: true,
-    dailyReminder: false,
-    weeklyReport: true
+    invoiceCreated: true,
+    weeklyReport: false,
+    monthlyReport: true
   })
 
-  async function handleCompanySave(e: React.FormEvent) {
-    e.preventDefault()
-    setIsLoading(true)
-    
+  const [integrations, setIntegrations] = useState({
+    cubicasa: { enabled: false, apiKey: '' },
+    poweroffice: { enabled: false, clientId: '', clientSecret: '' },
+    tripletex: { enabled: false, employeeToken: '', sessionToken: '' }
+  })
+
+  async function handleSave() {
+    setIsSaving(true)
     // Simuler lagring
-    setTimeout(() => {
-      setMessage({ type: 'success', text: 'Firmainnstillinger oppdatert!' })
-      setIsLoading(false)
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
-    }, 1000)
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    setIsSaving(false)
+    // Vis toast eller melding om suksess
   }
+
+  const tabs = [
+    { id: 'company', label: 'Firmainformasjon', icon: '🏢' },
+    { id: 'users', label: 'Brukere', icon: '👥' },
+    { id: 'email', label: 'E-postvarsler', icon: '📧' },
+    { id: 'integrations', label: 'Integrasjoner', icon: '🔌' },
+    { id: 'billing', label: 'Fakturering', icon: '💳' },
+    { id: 'api', label: 'API & Webhooks', icon: '🔧' }
+  ]
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Innstillinger</h1>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('company')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'company'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Firmainformasjon
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'users'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Brukere & Tilganger
-          </button>
-          <button
-            onClick={() => setActiveTab('email')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'email'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            E-post & Varsler
-          </button>
-          <button
-            onClick={() => setActiveTab('integrations')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'integrations'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Integrasjoner
-          </button>
-        </nav>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-100">Innstillinger</h1>
+        <p className="text-gray-400 mt-1">Konfigurer systemet og integrasjoner</p>
       </div>
 
-      {/* Message */}
-      {message.text && (
-        <div className={`mb-6 p-4 rounded-lg ${
-          message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      {/* Company Settings */}
-      {activeTab === 'company' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Firmainformasjon</h2>
-          <form onSubmit={handleCompanySave} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Firmanavn
-                </label>
-                <input
-                  type="text"
-                  value={companyData.name}
-                  onChange={(e) => setCompanyData({...companyData, name: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Organisasjonsnummer
-                </label>
-                <input
-                  type="text"
-                  value={companyData.orgNumber}
-                  onChange={(e) => setCompanyData({...companyData, orgNumber: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  E-post
-                </label>
-                <input
-                  type="email"
-                  value={companyData.email}
-                  onChange={(e) => setCompanyData({...companyData, email: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telefon
-                </label>
-                <input
-                  type="tel"
-                  value={companyData.phone}
-                  onChange={(e) => setCompanyData({...companyData, phone: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Adresse
-                </label>
-                <input
-                  type="text"
-                  value={companyData.address}
-                  onChange={(e) => setCompanyData({...companyData, address: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nettside
-                </label>
-                <input
-                  type="url"
-                  value={companyData.website}
-                  onChange={(e) => setCompanyData({...companyData, website: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end">
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Sidebar med tabs */}
+        <div className="lg:w-64">
+          <nav className="space-y-1">
+            {tabs.map(tab => (
               <button
-                type="submit"
-                disabled={isLoading}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200
+                  ${activeTab === tab.id 
+                    ? 'bg-nordvik-900 text-white' 
+                    : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
+                  }
+                `}
               >
-                {isLoading ? 'Lagrer...' : 'Lagre endringer'}
+                <span className="text-xl">{tab.icon}</span>
+                <span className="font-medium">{tab.label}</span>
               </button>
-            </div>
-          </form>
+            ))}
+          </nav>
         </div>
-      )}
 
-      {/* Users & Access */}
-      {activeTab === 'users' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Brukere & Tilganger</h2>
-          
-          <div className="mb-6">
-            <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-              + Inviter ny bruker
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold mr-4">
-                  AM
-                </div>
-                <div>
-                  <p className="font-medium">Admin Bruker</p>
-                  <p className="text-sm text-gray-600">admin@a7media.no</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">Admin</span>
-                <button className="text-gray-400 hover:text-gray-600">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Innholdsområde */}
+        <div className="flex-1">
+          <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6">
+            {/* Firmainformasjon */}
+            {activeTab === 'company' && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-200 mb-6">Firmainformasjon</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Firmanavn
+                    </label>
+                    <input
+                      type="text"
+                      value={companyData.name}
+                      onChange={(e) => setCompanyData({...companyData, name: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
 
-      {/* Email Settings */}
-      {activeTab === 'email' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">E-post & Varsler</h2>
-          
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-medium text-gray-900 mb-4">E-postvarsler</h3>
-              <div className="space-y-3">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={emailSettings.orderConfirmation}
-                    onChange={(e) => setEmailSettings({...emailSettings, orderConfirmation: e.target.checked})}
-                    className="mr-3"
-                  />
                   <div>
-                    <p className="font-medium">Ordrebekreftelse</p>
-                    <p className="text-sm text-gray-600">Send bekreftelse når nye ordre opprettes</p>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Organisasjonsnummer
+                    </label>
+                    <input
+                      type="text"
+                      value={companyData.orgNumber}
+                      onChange={(e) => setCompanyData({...companyData, orgNumber: e.target.value})}
+                      className="input-field w-full"
+                    />
                   </div>
-                </label>
-                
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={emailSettings.orderCompleted}
-                    onChange={(e) => setEmailSettings({...emailSettings, orderCompleted: e.target.checked})}
-                    className="mr-3"
-                  />
-                  <div>
-                    <p className="font-medium">Ordre fullført</p>
-                    <p className="text-sm text-gray-600">Varsle når ordre er ferdig</p>
-                  </div>
-                </label>
-                
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={emailSettings.dailyReminder}
-                    onChange={(e) => setEmailSettings({...emailSettings, dailyReminder: e.target.checked})}
-                    className="mr-3"
-                  />
-                  <div>
-                    <p className="font-medium">Daglig påminnelse</p>
-                    <p className="text-sm text-gray-600">Send påminnelse til fotografer dagen før oppdrag</p>
-                  </div>
-                </label>
-                
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={emailSettings.weeklyReport}
-                    onChange={(e) => setEmailSettings({...emailSettings, weeklyReport: e.target.checked})}
-                    className="mr-3"
-                  />
-                  <div>
-                    <p className="font-medium">Ukentlig rapport</p>
-                    <p className="text-sm text-gray-600">Motta sammendrag hver mandag</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-            
-            <div className="pt-6 border-t">
-              <h3 className="font-medium text-gray-900 mb-4">E-postmaler</h3>
-              <button className="text-indigo-600 hover:text-indigo-700">
-                Rediger e-postmaler →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Integrations */}
-      {activeTab === 'integrations' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <img src="/tripletex-logo.png" alt="Tripletex" className="h-8 mr-4" />
-                <div>
-                  <h3 className="font-medium text-gray-900">Tripletex</h3>
-                  <p className="text-sm text-gray-600">Regnskapssystem</p>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Adresse
+                    </label>
+                    <input
+                      type="text"
+                      value={companyData.address}
+                      onChange={(e) => setCompanyData({...companyData, address: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Postnummer
+                    </label>
+                    <input
+                      type="text"
+                      value={companyData.postalCode}
+                      onChange={(e) => setCompanyData({...companyData, postalCode: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Poststed
+                    </label>
+                    <input
+                      type="text"
+                      value={companyData.city}
+                      onChange={(e) => setCompanyData({...companyData, city: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Telefon
+                    </label>
+                    <input
+                      type="tel"
+                      value={companyData.phone}
+                      onChange={(e) => setCompanyData({...companyData, phone: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      E-post
+                    </label>
+                    <input
+                      type="email"
+                      value={companyData.email}
+                      onChange={(e) => setCompanyData({...companyData, email: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Nettside
+                    </label>
+                    <input
+                      type="url"
+                      value={companyData.website}
+                      onChange={(e) => setCompanyData({...companyData, website: e.target.value})}
+                      className="input-field w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-dark-800">
+                  <h3 className="text-lg font-semibold text-gray-200 mb-4">Logo</h3>
+                  <div className="flex items-center gap-6">
+                    <div className="w-32 h-32 bg-dark-800 rounded-lg flex items-center justify-center">
+                      <svg className="w-16 h-16 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <button className="btn-primary mb-2">Last opp logo</button>
+                      <p className="text-sm text-gray-500">PNG, JPG eller SVG. Maks 2MB.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Tilkoblet</span>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Synkroniser kunder, produkter og fakturaer automatisk med Tripletex.
-            </p>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                Konfigurer
-              </button>
-              <button className="px-4 py-2 text-red-600 hover:text-red-700">
-                Koble fra
-              </button>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-200 rounded mr-4"></div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Google Calendar</h3>
-                  <p className="text-sm text-gray-600">Kalendersynkronisering</p>
+            )}
+
+            {/* Brukere */}
+            {activeTab === 'users' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-gray-200">Brukere</h2>
+                  <button className="btn-primary">Inviter bruker</button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-dark-800 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-nordvik-800 rounded-full flex items-center justify-center text-white font-semibold">
+                        ML
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-200">Mats Lønne</p>
+                        <p className="text-sm text-gray-500">mats@a7media.no</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="status-badge bg-green-900/20 text-green-400 border border-green-800">
+                        Administrator
+                      </span>
+                      <button className="text-gray-400 hover:text-gray-300">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                Koble til
-              </button>
-            </div>
-            <p className="text-sm text-gray-600">
-              Synkroniser oppdrag automatisk med Google Calendar.
-            </p>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-200 rounded mr-4"></div>
-                <div>
-                  <h3 className="font-medium text-gray-900">CubiCasa</h3>
-                  <p className="text-sm text-gray-600">Plantegninger</p>
+            )}
+
+            {/* E-postvarsler */}
+            {activeTab === 'email' && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-200 mb-6">E-postvarsler</h2>
+                
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-200">Ordrebekreftelse</p>
+                      <p className="text-sm text-gray-500">Send e-post når ny ordre opprettes</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={emailSettings.orderConfirmation}
+                        onChange={(e) => setEmailSettings({...emailSettings, orderConfirmation: e.target.checked})}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-200">Ordre fullført</p>
+                      <p className="text-sm text-gray-500">Send e-post når ordre er levert</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={emailSettings.orderCompleted}
+                        onChange={(e) => setEmailSettings({...emailSettings, orderCompleted: e.target.checked})}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-200">Faktura opprettet</p>
+                      <p className="text-sm text-gray-500">Send e-post når faktura genereres</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={emailSettings.invoiceCreated}
+                        onChange={(e) => setEmailSettings({...emailSettings, invoiceCreated: e.target.checked})}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="pt-6 border-t border-dark-800">
+                    <h3 className="font-medium text-gray-200 mb-4">Rapporter</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-200">Ukentlig rapport</p>
+                          <p className="text-sm text-gray-500">Oppsummering hver mandag</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={emailSettings.weeklyReport}
+                            onChange={(e) => setEmailSettings({...emailSettings, weeklyReport: e.target.checked})}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-200">Månedlig rapport</p>
+                          <p className="text-sm text-gray-500">Detaljert rapport hver måned</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={emailSettings.monthlyReport}
+                            onChange={(e) => setEmailSettings({...emailSettings, monthlyReport: e.target.checked})}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                Koble til
-              </button>
-            </div>
-            <p className="text-sm text-gray-600">
-              Bestill plantegninger direkte fra IRiS.
-            </p>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-200 rounded mr-4"></div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Twilio</h3>
-                  <p className="text-sm text-gray-600">SMS-varsler</p>
+            )}
+
+            {/* Integrasjoner */}
+            {activeTab === 'integrations' && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-200 mb-6">Integrasjoner</h2>
+                
+                <div className="space-y-6">
+                  {/* CubiCasa */}
+                  <div className="bg-dark-800 rounded-lg p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-900/20 rounded-lg flex items-center justify-center">
+                          <span className="text-2xl">🏠</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-200">CubiCasa</h3>
+                          <p className="text-sm text-gray-500">Automatisk generering av plantegninger</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={integrations.cubicasa.enabled}
+                          onChange={(e) => setIntegrations({
+                            ...integrations,
+                            cubicasa: {...integrations.cubicasa, enabled: e.target.checked}
+                          })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                      </label>
+                    </div>
+                    
+                    {integrations.cubicasa.enabled && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          API Nøkkel
+                        </label>
+                        <input
+                          type="password"
+                          value={integrations.cubicasa.apiKey}
+                          onChange={(e) => setIntegrations({
+                            ...integrations,
+                            cubicasa: {...integrations.cubicasa, apiKey: e.target.value}
+                          })}
+                          placeholder="Din CubiCasa API nøkkel"
+                          className="input-field w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PowerOffice */}
+                  <div className="bg-dark-800 rounded-lg p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-green-900/20 rounded-lg flex items-center justify-center">
+                          <span className="text-2xl">💼</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-200">PowerOffice</h3>
+                          <p className="text-sm text-gray-500">Synkroniser faktura og regnskap</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={integrations.poweroffice.enabled}
+                          onChange={(e) => setIntegrations({
+                            ...integrations,
+                            poweroffice: {...integrations.poweroffice, enabled: e.target.checked}
+                          })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Tripletex */}
+                  <div className="bg-dark-800 rounded-lg p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-purple-900/20 rounded-lg flex items-center justify-center">
+                          <span className="text-2xl">📊</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-200">Tripletex</h3>
+                          <p className="text-sm text-gray-500">Alternativ til PowerOffice</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={integrations.tripletex.enabled}
+                          onChange={(e) => setIntegrations({
+                            ...integrations,
+                            tripletex: {...integrations.tripletex, enabled: e.target.checked}
+                          })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nordvik-600"></div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                Konfigurer
+            )}
+
+            {/* Lagre-knapp */}
+            <div className="mt-8 pt-6 border-t border-dark-800 flex justify-end">
+              <button 
+                onClick={handleSave}
+                disabled={isSaving}
+                className="btn-primary flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Lagrer...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Lagre endringer
+                  </>
+                )}
               </button>
             </div>
-            <p className="text-sm text-gray-600">
-              Send SMS-påminnelser til fotografer.
-            </p>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
