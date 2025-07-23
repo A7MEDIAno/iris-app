@@ -105,7 +105,7 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Aktive oppdrag */}
-        <div className="card p-6">
+        <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Aktive oppdrag</p>
@@ -127,7 +127,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Fullførte denne måned */}
-        <div className="card p-6">
+        <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Fullført denne måned</p>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Totalt kunder */}
-        <div className="card p-6">
+        <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Totalt kunder</p>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Aktive fotografer */}
-        <div className="card p-6">
+        <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Aktive fotografer</p>
@@ -184,111 +184,126 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Link href="/orders/new" className="card card-hover p-6 flex items-center gap-4 group">
-          <div className="p-4 bg-nordvik-900/20 rounded-lg group-hover:bg-nordvik-900/30 transition-colors">
-            <svg className="w-8 h-8 text-nordvik-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+      {/* Ordrestatus oversikt */}
+      <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6 mb-8">
+        <h2 className="text-lg font-semibold text-gray-200 mb-4">Ordrestatus</h2>
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+            <span className="text-sm text-gray-400">Venter ({stats.orders.pending})</span>
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-200">Ny bestilling</h3>
-            <p className="text-sm text-gray-400">Opprett nytt foto-oppdrag</p>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+            <span className="text-sm text-gray-400">Tildelt ({stats.orders.inProgress})</span>
           </div>
-          <svg className="w-5 h-5 text-gray-500 ml-auto transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-
-        <Link href="/customers/new" className="card card-hover p-6 flex items-center gap-4 group">
-          <div className="p-4 bg-blue-900/20 rounded-lg group-hover:bg-blue-900/30 transition-colors">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
+            <span className="text-sm text-gray-400">Under arbeid ({stats.orders.inProgress})</span>
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-200">Ny kunde</h3>
-            <p className="text-sm text-gray-400">Registrer nytt meglerkontor</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-500 ml-auto transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-
-        <Link href="/analytics" className="card card-hover p-6 flex items-center gap-4 group">
-          <div className="p-4 bg-purple-900/20 rounded-lg group-hover:bg-purple-900/30 transition-colors">
-            <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-200">Se statistikk</h3>
-            <p className="text-sm text-gray-400">Analyser ytelse og trender</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-500 ml-auto transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-      </div>
-
-      {/* Recent Orders & Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Orders */}
-        <div className="card">
-          <div className="p-6 border-b border-dark-800">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-200">Siste bestillinger</h2>
-              <Link href="/orders" className="text-sm text-nordvik-400 hover:text-nordvik-300">
-                Se alle →
-              </Link>
-            </div>
-          </div>
-          <div className="divide-y divide-dark-800">
-            {recentOrders.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                Ingen bestillinger ennå
-              </div>
-            ) : (
-              recentOrders.map((order: any) => (
-                <div key={order.id} className="p-4 hover:bg-dark-800/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-200">#{order.orderNumber}</p>
-                      <p className="text-sm text-gray-400">{order.propertyAddress}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(order.createdAt).toLocaleDateString('nb-NO')}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`status-badge text-xs ${
-                        order.status === 'PENDING' ? 'bg-yellow-900/20 text-yellow-400 border border-yellow-800' :
-                        order.status === 'IN_PROGRESS' ? 'bg-blue-900/20 text-blue-400 border border-blue-800' :
-                        order.status === 'COMPLETED' ? 'bg-green-900/20 text-green-400 border border-green-800' :
-                        'bg-gray-900/20 text-gray-400 border border-gray-800'
-                      }`}>
-                        {order.status === 'PENDING' ? 'Venter' :
-                         order.status === 'IN_PROGRESS' ? 'Pågår' :
-                         order.status === 'COMPLETED' ? 'Fullført' : order.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+            <span className="text-sm text-gray-400">Fullført ({stats.orders.completed})</span>
           </div>
         </div>
+      </div>
 
-        {/* Activity Chart Placeholder */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-200 mb-4">Aktivitet siste 7 dager</h2>
-          <div className="h-64 flex items-center justify-center bg-dark-800 rounded-lg">
-            <div className="text-center">
-              <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-              </svg>
-              <p className="text-gray-500">Aktivitetsgraf kommer snart</p>
+      {/* Siste oppdrag */}
+      <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg mb-8">
+        <div className="p-6 border-b border-dark-800">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-200">Siste oppdrag</h2>
+            <Link href="/orders" className="text-sm text-nordvik-400 hover:text-nordvik-300">
+              Se alle →
+            </Link>
+          </div>
+        </div>
+        <div className="divide-y divide-dark-800">
+          {recentOrders.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              Ingen oppdrag ennå
             </div>
+          ) : (
+            recentOrders.map((order: any) => (
+              <div key={order.id} className="p-4 hover:bg-dark-800/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-200">#{order.orderNumber}</p>
+                    <p className="text-sm text-gray-400">{order.propertyAddress}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(order.createdAt).toLocaleDateString('nb-NO')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      order.status === 'PENDING' ? 'bg-yellow-900/20 text-yellow-400 border border-yellow-800' :
+                      order.status === 'IN_PROGRESS' ? 'bg-blue-900/20 text-blue-400 border border-blue-800' :
+                      order.status === 'COMPLETED' ? 'bg-green-900/20 text-green-400 border border-green-800' :
+                      'bg-gray-900/20 text-gray-400 border border-gray-800'
+                    }`}>
+                      {order.status === 'PENDING' ? 'Venter' :
+                       order.status === 'IN_PROGRESS' ? 'Pågår' :
+                       order.status === 'COMPLETED' ? 'Fullført' : order.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions - Hurtighandlinger */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-200 mb-4">Hurtighandlinger</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <Link href="/orders/new" className="bg-dark-900 hover:bg-dark-800 border border-dark-800 hover:border-dark-700 rounded-lg p-6 flex flex-col items-center text-center transition-all duration-200 group">
+            <div className="p-4 bg-nordvik-900/20 rounded-lg group-hover:bg-nordvik-900/30 transition-colors mb-4">
+              <svg className="w-8 h-8 text-nordvik-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <h3 className="font-semibold text-gray-200">Nytt oppdrag</h3>
+          </Link>
+
+          <Link href="/customers/new" className="bg-dark-900 hover:bg-dark-800 border border-dark-800 hover:border-dark-700 rounded-lg p-6 flex flex-col items-center text-center transition-all duration-200 group">
+            <div className="p-4 bg-blue-900/20 rounded-lg group-hover:bg-blue-900/30 transition-colors mb-4">
+              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </div>
+            <h3 className="font-semibold text-gray-200">Ny kunde</h3>
+          </Link>
+
+          <Link href="/photographers/new" className="bg-dark-900 hover:bg-dark-800 border border-dark-800 hover:border-dark-700 rounded-lg p-6 flex flex-col items-center text-center transition-all duration-200 group">
+            <div className="p-4 bg-purple-900/20 rounded-lg group-hover:bg-purple-900/30 transition-colors mb-4">
+              <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <h3 className="font-semibold text-gray-200">Ny fotograf</h3>
+          </Link>
+
+          <Link href="/products/new" className="bg-dark-900 hover:bg-dark-800 border border-dark-800 hover:border-dark-700 rounded-lg p-6 flex flex-col items-center text-center transition-all duration-200 group">
+            <div className="p-4 bg-green-900/20 rounded-lg group-hover:bg-green-900/30 transition-colors mb-4">
+              <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <h3 className="font-semibold text-gray-200">Nytt produkt</h3>
+          </Link>
+        </div>
+      </div>
+
+      {/* Top fotografer */}
+      <div className="bg-dark-900 rounded-lg border border-dark-800 shadow-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-200 mb-4">Top fotografer</h2>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-nordvik-800 rounded-full flex items-center justify-center text-white font-semibold">
+            ML
+          </div>
+          <div>
+            <p className="font-medium text-gray-200">Mats Lønne</p>
+            <p className="text-sm text-gray-400">0 oppdrag (0 fullført)</p>
           </div>
         </div>
       </div>
