@@ -9,10 +9,6 @@
     --nordvik-accent: #2da27f;
   }
 
-  * {
-    @apply border-border;
-  }
-
   body {
     @apply bg-dark-950 text-gray-100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
