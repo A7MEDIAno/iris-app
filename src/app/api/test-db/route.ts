@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/db/prisma'
 
 export async function GET() {
-  console.log('Test DB route called')
-  
   try {
-    console.log('Creating Prisma Client...')
-    const prisma = new PrismaClient({
-      log: ['query', 'error', 'warn'],
-    })
+    console.log('Testing database connection...')
     
-    console.log('Connecting to database...')
+    // Test connection
     await prisma.$connect()
-    console.log('Connected!')
+    console.log('Connected to database!')
     
-    // Test query
+    // Try to count companies
     const count = await prisma.company.count()
     console.log('Company count:', count)
     
@@ -23,7 +18,8 @@ export async function GET() {
     return NextResponse.json({ 
       success: true, 
       message: 'Database connection successful!',
-      companyCount: count
+      companyCount: count,
+      timestamp: new Date().toISOString()
     })
   } catch (error: any) {
     console.error('Database error:', error)
@@ -31,7 +27,7 @@ export async function GET() {
       success: false, 
       error: error.message,
       code: error.code,
-      stack: error.stack
+      details: error.toString()
     }, { status: 500 })
   }
 }
