@@ -68,7 +68,7 @@ model Customer {
   id            String   @id @default(cuid())
   name          String
   orgNumber     String?
-  email         String
+  email         String   
   phone         String?
   invoiceEmail  String?
   

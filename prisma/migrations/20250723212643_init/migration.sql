@@ -7,6 +7,9 @@ CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'EDITIN
 -- CreateEnum
 CREATE TYPE "Priority" AS ENUM ('NORMAL', 'HIGH', 'URGENT');
 
+-- CreateEnum
+CREATE TYPE "ImageStatus" AS ENUM ('UPLOADED', 'PROCESSING', 'READY_FOR_EDIT', 'IN_EDITING', 'EDITED', 'APPROVED', 'REJECTED', 'DELIVERED');
+
 -- CreateTable
 CREATE TABLE "Company" (
     "id" TEXT NOT NULL,
@@ -29,6 +32,7 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "phone" TEXT,
+    "password" TEXT NOT NULL,
     "role" "UserRole" NOT NULL DEFAULT 'PHOTOGRAPHER',
     "companyId" TEXT NOT NULL,
     "baseAddress" TEXT,
@@ -91,6 +95,50 @@ CREATE TABLE "Order" (
     CONSTRAINT "Order_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Image" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "filename" TEXT NOT NULL,
+    "originalName" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "thumbnailUrl" TEXT,
+    "size" INTEGER NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "width" INTEGER,
+    "height" INTEGER,
+    "uploadedBy" TEXT NOT NULL,
+    "status" "ImageStatus" NOT NULL DEFAULT 'UPLOADED',
+    "metadata" JSONB,
+    "editedUrl" TEXT,
+    "editedBy" TEXT,
+    "editedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Image_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Tag" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "category" TEXT,
+    "icon" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Tag_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ImageTag" (
+    "id" TEXT NOT NULL,
+    "imageId" TEXT NOT NULL,
+    "tagId" TEXT NOT NULL,
+
+    CONSTRAINT "ImageTag_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Company_orgNumber_key" ON "Company"("orgNumber");
 
@@ -99,6 +147,24 @@ CREATE UNIQUE INDEX "Company_subdomain_key" ON "Company"("subdomain");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE INDEX "Image_orderId_idx" ON "Image"("orderId");
+
+-- CreateIndex
+CREATE INDEX "Image_status_idx" ON "Image"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Tag_name_key" ON "Tag"("name");
+
+-- CreateIndex
+CREATE INDEX "ImageTag_imageId_idx" ON "ImageTag"("imageId");
+
+-- CreateIndex
+CREATE INDEX "ImageTag_tagId_idx" ON "ImageTag"("tagId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ImageTag_imageId_tagId_key" ON "ImageTag"("imageId", "tagId");
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -120,3 +186,18 @@ ALTER TABLE "Order" ADD CONSTRAINT "Order_createdById_fkey" FOREIGN KEY ("create
 
 -- AddForeignKey
 ALTER TABLE "Order" ADD CONSTRAINT "Order_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Image" ADD CONSTRAINT "Image_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Image" ADD CONSTRAINT "Image_uploadedBy_fkey" FOREIGN KEY ("uploadedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Image" ADD CONSTRAINT "Image_editedBy_fkey" FOREIGN KEY ("editedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ImageTag" ADD CONSTRAINT "ImageTag_imageId_fkey" FOREIGN KEY ("imageId") REFERENCES "Image"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ImageTag" ADD CONSTRAINT "ImageTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
