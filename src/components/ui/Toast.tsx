@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -92,29 +92,32 @@ function ToastItem({ toast, onClose }: ToastProps) {
   )
 }
 
-let toastContainer: HTMLDivElement | null = null
-
 export function ToastContainer() {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [mounted, setMounted] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      toastContainer = document.createElement('div')
-      toastContainer.className = 'fixed top-4 right-4 z-50 space-y-4'
-      document.body.appendChild(toastContainer)
+    setMounted(true)
+    
+    // Create container element
+    const container = document.createElement('div')
+    container.className = 'fixed top-4 right-4 z-50 space-y-4'
+    document.body.appendChild(container)
+    containerRef.current = container
 
-      // Listen for custom toast events
-      const handleToast = (e: CustomEvent<Toast>) => {
-        setToasts(prev => [...prev, { ...e.detail, id: Date.now().toString() }])
-      }
+    // Listen for custom toast events
+    const handleToast = (e: CustomEvent<Toast>) => {
+      setToasts(prev => [...prev, { ...e.detail, id: Date.now().toString() }])
+    }
 
-      window.addEventListener('show-toast' as any, handleToast)
+    window.addEventListener('show-toast' as any, handleToast)
 
-      return () => {
-        window.removeEventListener('show-toast' as any, handleToast)
-        if (toastContainer) {
-          document.body.removeChild(toastContainer)
-        }
+    return () => {
+      window.removeEventListener('show-toast' as any, handleToast)
+      // Safely remove container
+      if (containerRef.current && document.body.contains(containerRef.current)) {
+        document.body.removeChild(containerRef.current)
       }
     }
   }, [])
@@ -123,7 +126,7 @@ export function ToastContainer() {
     setToasts(prev => prev.filter(t => t.id !== id))
   }
 
-  if (!toastContainer || toasts.length === 0) return null
+  if (!mounted || !containerRef.current || toasts.length === 0) return null
 
   return createPortal(
     <>
@@ -131,7 +134,7 @@ export function ToastContainer() {
         <ToastItem key={toast.id} toast={toast} onClose={removeToast} />
       ))}
     </>,
-    toastContainer
+    containerRef.current
   )
 }
 

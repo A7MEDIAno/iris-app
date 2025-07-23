@@ -11,7 +11,7 @@ interface Order {
   propertyAddress: string
   shootDate: string
   status: string
-  totalAmount: number
+  totalAmount?: number // Gjør dette optional
 }
 
 export default function OrdersPage() {
@@ -62,6 +62,12 @@ export default function OrdersPage() {
       CANCELLED: 'Kansellert'
     }
     return labels[status] || status
+  }
+
+  // Helper function for safe number formatting
+  const formatAmount = (amount?: number) => {
+    if (amount === undefined || amount === null) return 'kr 0'
+    return `kr ${amount.toLocaleString('nb-NO')}`
   }
 
   if (isLoading) {
@@ -184,7 +190,7 @@ export default function OrdersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm font-medium text-gray-200">
-                      kr {order.totalAmount.toLocaleString('nb-NO')}
+                      {formatAmount(order.totalAmount)}
                     </span>
                   </td>
                 </tr>
@@ -237,7 +243,7 @@ export default function OrdersPage() {
               </div>
               
               <div className="mt-2 text-lg font-bold text-nordvik-400">
-                kr {order.totalAmount.toLocaleString('nb-NO')}
+                {formatAmount(order.totalAmount)}
               </div>
             </div>
           ))}
