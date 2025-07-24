@@ -1,65 +1,122 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '../../../lib/db/prisma'
-import { getCurrentCompany } from '../../../lib/auth/session'
+import { prisma } from '@/lib/db/prisma'
+import { requireAuth } from '@/lib/auth'
+import { withErrorHandler, ValidationError } from '@/lib/errors'
 
-export async function GET() {
-  try {
-    const company = await getCurrentCompany() || await prisma.company.findFirst()
-    
-    if (!company) {
-      return NextResponse.json([])
-    }
+// GET /api/products
+export const GET = withErrorHandler(async (request: Request) => {
+  const session = await requireAuth()
+  
+  const { searchParams } = new URL(request.url)
+  const category = searchParams.get('category')
+  const activeOnly = searchParams.get('activeOnly') !== 'false'
+  
+  const products = await prisma.product.findMany({
+    where: { 
+      companyId: session.user.companyId,
+      ...(category && { category }),
+      ...(activeOnly && { isActive: true })
+    },
+    orderBy: [
+      { category: 'asc' },
+      { sortOrder: 'asc' },
+      { name: 'asc' }
+    ]
+  })
+  
+  // Grupper produkter etter kategori
+  const groupedProducts = products.reduce((acc, product) => {
+    const cat = product.category || 'Ukategorisert'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(product)
+    return acc
+  }, {} as Record<string, typeof products>)
+  
+  return NextResponse.json({ 
+    products,
+    groupedProducts,
+    categories: Object.keys(groupedProducts)
+  })
+})
 
-    const products = await prisma.product.findMany({
-      where: { companyId: company.id },
-      orderBy: { createdAt: 'desc' }
-    })
-    
-    return NextResponse.json(products)
-  } catch (error) {
-    console.error('Error fetching products:', error)
-    return NextResponse.json(
-      { error: 'Kunne ikke hente produkter' },
-      { status: 500 }
-    )
+// POST /api/products
+export const POST = withErrorHandler(async (request: Request) => {
+  const session = await requireAuth()
+  
+  // Kun admin kan opprette produkter
+  if (session.user.role !== 'ADMIN') {
+    throw new ValidationError('Kun administratorer kan opprette produkter')
   }
-}
-
-export async function POST(req: Request) {
-  try {
-    const company = await getCurrentCompany() || await prisma.company.findFirst()
-    
-    if (!company) {
-      return NextResponse.json(
-        { error: 'Ingen firma funnet' },
-        { status: 400 }
-      )
-    }
-
-    const data = await req.json()
-    
-    const product = await prisma.product.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        sku: data.sku,
-        priceExVat: data.priceExVat,
-        vatRate: data.vatRate || 25,
-        pke: data.pke || 0,
-        pki: data.pki || 0,
-        photographerFee: data.photographerFee || 0,
-        isActive: data.isActive ?? true,
-        companyId: company.id
+  
+  const body = await request.json()
+  
+  // Validering
+  if (!body.name || body.name.trim().length < 2) {
+    throw new ValidationError('Produktnavn må være minst 2 tegn')
+  }
+  
+  if (!body.priceExVat || body.priceExVat <= 0) {
+    throw new ValidationError('Pris må være større enn 0')
+  }
+  
+  if (body.vatRate && (body.vatRate < 0 || body.vatRate > 100)) {
+    throw new ValidationError('MVA-sats må være mellom 0 og 100')
+  }
+  
+  // Beregn fortjeneste
+  const pke = Number(body.pke || 0)
+  const pki = Number(body.pki || 0)
+  const photographerFee = Number(body.photographerFee || 0)
+  const price = Number(body.priceExVat)
+  
+  const totalCost = pke + pki + photographerFee
+  const profit = price - totalCost
+  const profitMargin = price > 0 ? (profit / price) * 100 : 0
+  
+  // Sjekk for duplikater
+  if (body.sku) {
+    const existing = await prisma.product.findFirst({
+      where: {
+        companyId: session.user.companyId,
+        sku: body.sku
       }
     })
     
-    return NextResponse.json(product)
-  } catch (error: any) {
-    console.error('Create product error:', error)
-    
-    return NextResponse.json(
-      { error: 'Kunne ikke opprette produkt' },
-      { status: 500 }
-    )
+    if (existing) {
+      throw new ValidationError('Et produkt med denne SKU finnes allerede')
+    }
   }
-}
+  
+  // Finn høyeste sortOrder i samme kategori
+  const maxSortOrder = await prisma.product.findFirst({
+    where: {
+      companyId: session.user.companyId,
+      category: body.category || null
+    },
+    orderBy: { sortOrder: 'desc' },
+    select: { sortOrder: true }
+  })
+  
+  const product = await prisma.product.create({
+    data: {
+      name: body.name.trim(),
+      description: body.description?.trim() || null,
+      sku: body.sku?.trim() || null,
+      category: body.category || null,
+      priceExVat: price,
+      vatRate: body.vatRate || 25,
+      pke: pke,
+      pki: pki,
+      photographerFee: photographerFee,
+      isActive: body.isActive ?? true,
+      sortOrder: (maxSortOrder?.sortOrder || 0) + 1,
+      companyId: session.user.companyId
+    }
+  })
+  
+  return NextResponse.json({
+    ...product,
+    profit,
+    profitMargin
+  }, { status: 201 })
+})

@@ -1,65 +1,109 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { showToast } from '@/components/ui/Toast'
+import { Package, DollarSign, BarChart3, Tag, Edit, Trash2, Plus } from 'lucide-react'
+
+interface Product {
+  id: string
+  name: string
+  description?: string
+  category?: string
+  sku?: string
+  priceExVat: number
+  vatRate: number
+  pke: number
+  pki: number
+  photographerFee: number
+  isActive: boolean
+  createdAt: string
+}
+
+interface GroupedProducts {
+  [category: string]: Product[]
+}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState([])
+  const router = useRouter()
+  const [products, setProducts] = useState<Product[]>([])
+  const [groupedProducts, setGroupedProducts] = useState<GroupedProducts>({})
   const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [showInactive, setShowInactive] = useState(false)
 
   useEffect(() => {
     loadProducts()
-  }, [])
+  }, [showInactive])
 
   async function loadProducts() {
     try {
-      const res = await fetch('/api/products')
-      if (res.ok) {
-        const data = await res.json()
-        setProducts(data)
-      }
+      const params = new URLSearchParams({
+        activeOnly: (!showInactive).toString()
+      })
+
+      const res = await fetch(`/api/products?${params}`)
+      if (!res.ok) throw new Error('Failed to load products')
+      
+      const data = await res.json()
+      setProducts(data.products || [])
+      setGroupedProducts(data.groupedProducts || {})
     } catch (error) {
       console.error('Error loading products:', error)
+      showToast({
+        type: 'error',
+        title: 'Kunne ikke laste produkter',
+        message: 'Prøv igjen senere'
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Filtrer produkter
-  const filteredProducts = products.filter((product: any) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter
-    return matchesSearch && matchesCategory
-  })
+  const calculateProfit = (product: Product) => {
+    const totalCost = Number(product.pke) + Number(product.pki) + Number(product.photographerFee)
+    const profit = Number(product.priceExVat) - totalCost
+    const margin = Number(product.priceExVat) > 0 ? (profit / Number(product.priceExVat)) * 100 : 0
+    return { profit, margin }
+  }
 
-  // Grupper produkter etter kategori
-  const productsByCategory = filteredProducts.reduce((acc: any, product: any) => {
-    const category = product.category || 'Ukategorisert'
-    if (!acc[category]) acc[category] = []
-    acc[category].push(product)
-    return acc
-  }, {})
-
-  // Format pris
-  const formatPrice = (price: number) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('nb-NO', {
       style: 'currency',
       currency: 'NOK',
-      minimumFractionDigits: 0
-    }).format(price)
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
   }
+
+  const getMarginColor = (margin: number) => {
+    if (margin < 0) return 'text-red-500'
+    if (margin < 20) return 'text-yellow-500'
+    if (margin < 40) return 'text-blue-500'
+    return 'text-green-500'
+  }
+
+  const getCategoryLabel = (category: string | null) => {
+    const labels: Record<string, string> = {
+      'foto': 'Fotografi',
+      'video': 'Video',
+      'drone': 'Drone',
+      'plantegning': 'Plantegning',
+      'styling': 'Styling',
+      'tillegg': 'Tilleggstjenester',
+      'Ukategorisert': 'Ukategorisert'
+    }
+    return labels[category || 'Ukategorisert'] || category || 'Ukategorisert'
+  }
+
+  const filteredProducts = selectedCategory === 'all' 
+    ? products 
+    : products.filter(p => (p.category || 'Ukategorisert') === selectedCategory)
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-nordvik-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Laster produkter...</p>
-        </div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-nordvik-500"></div>
       </div>
     )
   }
@@ -67,234 +111,203 @@ export default function ProductsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-100">Produkter</h1>
           <p className="text-gray-400 mt-1">Administrer tjenester og priser</p>
         </div>
-        <Link href="/products/new" className="btn-primary flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <button 
+          onClick={() => router.push('/products/new')}
+          className="btn-primary flex items-center"
+        >
+          <Plus className="w-4 h-4 mr-2" />
           Nytt produkt
-        </Link>
+        </button>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="card p-6">
+      {/* Statistikk */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-dark-900 rounded-lg border border-dark-800 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Totalt produkter</p>
-              <p className="text-2xl font-bold text-gray-100 mt-1">{products.length}</p>
-            </div>
-            <div className="p-3 bg-dark-800 rounded-lg">
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Fotopakker</p>
-              <p className="text-2xl font-bold text-nordvik-400 mt-1">
-                {products.filter((p: any) => p.category === 'PHOTOGRAPHY').length}
-              </p>
-            </div>
-            <div className="p-3 bg-nordvik-900/20 rounded-lg">
-              <svg className="w-6 h-6 text-nordvik-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Tilleggstjenester</p>
-              <p className="text-2xl font-bold text-blue-400 mt-1">
-                {products.filter((p: any) => p.category === 'ADDON').length}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-900/20 rounded-lg">
-              <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Gjennomsnittspris</p>
+              <p className="text-sm font-medium text-gray-400">Totalt produkter</p>
               <p className="text-2xl font-bold text-gray-100 mt-1">
-                {formatPrice(products.reduce((sum: number, p: any) => sum + p.price, 0) / products.length || 0)}
+                {products.length}
               </p>
             </div>
-            <div className="p-3 bg-green-900/20 rounded-lg">
-              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <Package className="w-8 h-8 text-nordvik-400 opacity-50" />
+          </div>
+        </div>
+
+        <div className="bg-dark-900 rounded-lg border border-dark-800 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-400">Aktive produkter</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
+                {products.filter(p => p.isActive).length}
+              </p>
             </div>
+            <Tag className="w-8 h-8 text-green-400 opacity-50" />
+          </div>
+        </div>
+
+        <div className="bg-dark-900 rounded-lg border border-dark-800 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-400">Snitt pris</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
+                {formatCurrency(
+                  products.reduce((sum, p) => sum + Number(p.priceExVat), 0) / products.length || 0
+                )}
+              </p>
+            </div>
+            <DollarSign className="w-8 h-8 text-yellow-400 opacity-50" />
+          </div>
+        </div>
+
+        <div className="bg-dark-900 rounded-lg border border-dark-800 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-400">Snitt margin</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
+                {products.length > 0 
+                  ? (products.reduce((sum, p) => sum + calculateProfit(p).margin, 0) / products.length).toFixed(1)
+                  : 0
+                }%
+              </p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-purple-400 opacity-50" />
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="card p-6 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
-          {/* Søk */}
-          <div className="flex-1 min-w-[300px]">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Søk etter produktnavn eller beskrivelse..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-field pl-10 w-full"
-              />
-            </div>
+      <div className="bg-dark-900 rounded-lg border border-dark-800 p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === 'all' 
+                  ? 'bg-nordvik-500 text-white' 
+                  : 'bg-dark-800 text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              Alle kategorier
+            </button>
+            {Object.keys(groupedProducts).map(category => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedCategory === category 
+                    ? 'bg-nordvik-500 text-white' 
+                    : 'bg-dark-800 text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                {getCategoryLabel(category)} ({groupedProducts[category].length})
+              </button>
+            ))}
           </div>
-
-          {/* Kategori filter */}
-          <select 
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="input-field"
-          >
-            <option value="all">Alle kategorier</option>
-            <option value="PHOTOGRAPHY">Fotopakker</option>
-            <option value="ADDON">Tilleggstjenester</option>
-            <option value="FLOORPLAN">Plantegninger</option>
-            <option value="OTHER">Annet</option>
-          </select>
+          
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="mr-2"
+            />
+            <span className="text-sm text-gray-300">Vis inaktive</span>
+          </label>
         </div>
       </div>
 
-      {/* Products by category */}
-      {Object.keys(productsByCategory).length === 0 ? (
-        <div className="card p-12 text-center">
-          <div className="w-20 h-20 bg-dark-800 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-semibold text-gray-200 mb-2">Ingen produkter funnet</h3>
-          <p className="text-gray-500 mb-6">Prøv å justere søket eller filteret</p>
-          <Link href="/products/new" className="btn-primary inline-flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Opprett første produkt
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {Object.entries(productsByCategory).map(([category, categoryProducts]: [string, any]) => (
-            <div key={category}>
-              <h2 className="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
-                {category === 'PHOTOGRAPHY' && <span className="text-nordvik-400">📷</span>}
-                {category === 'ADDON' && <span className="text-blue-400">➕</span>}
-                {category === 'FLOORPLAN' && <span className="text-purple-400">📐</span>}
-                {category === 'OTHER' && <span className="text-gray-400">📦</span>}
-                {category === 'PHOTOGRAPHY' ? 'Fotopakker' :
-                 category === 'ADDON' ? 'Tilleggstjenester' :
-                 category === 'FLOORPLAN' ? 'Plantegninger' :
-                 category === 'OTHER' ? 'Annet' : category}
-                <span className="text-sm text-gray-500">({categoryProducts.length})</span>
-              </h2>
+      {/* Products grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredProducts.map((product) => {
+          const { profit, margin } = calculateProfit(product)
+          const priceIncVat = Number(product.priceExVat) * (1 + Number(product.vatRate) / 100)
+          
+          return (
+            <div 
+              key={product.id} 
+              className={`bg-dark-900 rounded-lg border ${
+                product.isActive ? 'border-dark-800' : 'border-dark-700 opacity-60'
+              } p-6 hover:border-nordvik-500 transition-colors`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-100">{product.name}</h3>
+                  {product.sku && (
+                    <p className="text-xs text-gray-500 mt-1">SKU: {product.sku}</p>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => router.push(`/products/${product.id}/edit`)}
+                    className="p-2 text-gray-400 hover:text-nordvik-400 hover:bg-dark-800 rounded-lg transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {categoryProducts.map((product: any) => (
-                  <div key={product.id} className="card card-hover p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-200 text-lg">{product.name}</h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {product.code ? `Kode: ${product.code}` : 'Ingen kode'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-nordvik-400">
-                          {formatPrice(product.price)}
-                        </p>
-                        <p className="text-xs text-gray-500">eks. mva</p>
-                      </div>
-                    </div>
+              {product.description && (
+                <p className="text-sm text-gray-400 mb-4 line-clamp-2">{product.description}</p>
+              )}
 
-                    {product.description && (
-                      <p className="text-sm text-gray-400 mb-4 line-clamp-2">
-                        {product.description}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Pris eks. MVA</span>
+                  <span className="font-medium text-gray-200">{formatCurrency(Number(product.priceExVat))}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Pris inkl. MVA</span>
+                  <span className="font-medium text-gray-200">{formatCurrency(priceIncVat)}</span>
+                </div>
+
+                <div className="border-t border-dark-800 pt-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-500">Kostnader</span>
+                    <span className="text-sm text-gray-400">
+                      {formatCurrency(Number(product.pke) + Number(product.pki) + Number(product.photographerFee))}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Fortjeneste</span>
+                    <div className="text-right">
+                      <p className={`font-medium ${getMarginColor(margin)}`}>
+                        {formatCurrency(profit)}
                       </p>
-                    )}
-
-                    <div className="space-y-2 text-sm">
-                      {product.estimatedHours && (
-                        <div className="flex items-center justify-between text-gray-400">
-                          <span className="flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Estimert tid
-                          </span>
-                          <span className="font-medium text-gray-300">{product.estimatedHours} timer</span>
-                        </div>
-                      )}
-                      
-                      {product.photographerFee && (
-                        <div className="flex items-center justify-between text-gray-400">
-                          <span className="flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            Fotograf
-                          </span>
-                          <span className="font-medium text-gray-300">{formatPrice(product.photographerFee)}</span>
-                        </div>
-                      )}
-
-                      {product.editorFee && (
-                        <div className="flex items-center justify-between text-gray-400">
-                          <span className="flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Redigerer
-                          </span>
-                          <span className="font-medium text-gray-300">{formatPrice(product.editorFee)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-dark-800 flex justify-between items-center">
-                      <span className={`status-badge text-xs ${
-                        product.isActive 
-                          ? 'bg-green-900/20 text-green-400 border border-green-800' 
-                          : 'bg-red-900/20 text-red-400 border border-red-800'
-                      }`}>
-                        {product.isActive ? 'Aktiv' : 'Inaktiv'}
-                      </span>
-                      <Link
-                        href={`/products/${product.id}`}
-                        className="text-sm text-nordvik-400 hover:text-nordvik-300 font-medium"
-                      >
-                        Rediger
-                      </Link>
+                      <p className={`text-xs ${getMarginColor(margin)}`}>
+                        {margin.toFixed(1)}% margin
+                      </p>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
+
+              {!product.isActive && (
+                <div className="mt-4 px-3 py-1 bg-gray-800 rounded-full text-xs text-gray-400 text-center">
+                  Inaktiv
+                </div>
+              )}
             </div>
-          ))}
+          )
+        })}
+      </div>
+
+      {filteredProducts.length === 0 && (
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500">
+            {selectedCategory === 'all' 
+              ? 'Ingen produkter opprettet ennå'
+              : `Ingen produkter i kategorien ${getCategoryLabel(selectedCategory)}`
+            }
+          </p>
         </div>
       )}
     </div>
