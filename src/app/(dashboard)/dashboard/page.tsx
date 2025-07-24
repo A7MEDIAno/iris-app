@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { showToast } from '../../../components/ui/Toast'
+import QuickActions from '@/components/QuickActions'
 
 interface DashboardData {
   overview: {

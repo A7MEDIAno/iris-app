@@ -70,15 +70,59 @@ model Customer {
   orgNumber     String?
   email         String   
   phone         String?
+  
+  // Fakturering
   invoiceEmail  String?
+  invoiceAddress String?
+  invoiceZip    String?
+  invoiceCity   String?
+  
+  // Leveranseadresse (hvis annerledes)
+  deliveryAddress String?
+  deliveryZip     String?
+  deliveryCity    String?
+  
+  // Kontaktpersoner
+  contactPersons ContactPerson[]
+  
+  // Preferanser
+  preferences   Json?    // Lagrer kunde-spesifikke preferanser
+  notes         String?  // Interne notater
+  
+  // Status
+  isActive      Boolean  @default(true)
+  creditLimit   Decimal? @default(0)
+  paymentTerms  Int      @default(14) // Betalingsbetingelser i dager
   
   company       Company  @relation(fields: [companyId], references: [id])
   companyId     String
   
   orders        Order[]
+  invoices      Invoice[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  @@unique([companyId, email])
+  @@unique([companyId, orgNumber])
+  @@index([companyId, isActive])
+}
+
+model ContactPerson {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  phone      String?
+  role       String?  // e.g., "Daglig leder", "Markedsansvarlig"
+  isPrimary  Boolean  @default(false)
+  
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([customerId])
 }
 
 // Product (tjenester)
@@ -104,7 +148,19 @@ model Product {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
-
+model Invoice {
+  id            String @id @default(cuid())
+  invoiceNumber Int @unique @default(autoincrement())
+  
+  customer      Customer @relation(fields: [customerId], references: [id])
+  customerId    String
+  
+  status        String @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE
+  total         Decimal @default(0)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
 // Order (oppdrag)
 model Order {
   id              String      @id @default(cuid())
