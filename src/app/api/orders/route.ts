@@ -25,6 +25,11 @@ export const GET = withErrorHandler(async (request: Request) => {
             name: true,
             email: true
           }
+        },
+        orderProducts: {
+          include: {
+            product: true
+          }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -43,7 +48,8 @@ export const GET = withErrorHandler(async (request: Request) => {
     propertyAddress: order.propertyAddress,
     shootDate: order.scheduledDate,
     status: order.status,
-    totalAmount: 0
+    totalAmount: Number(order.totalAmount || 0),
+    productCount: order.orderProducts.length
   }))
   
   return NextResponse.json({
@@ -63,32 +69,100 @@ export const POST = withErrorHandler(async (request: Request) => {
   
   // Valider input
   if (!body.customerId || !body.propertyAddress) {
-    throw new ValidationError('Missing required fields')
+    throw new ValidationError('Kunde og adresse er påkrevd')
+  }
+  
+  if (!body.products || body.products.length === 0) {
+    throw new ValidationError('Du må velge minst ett produkt')
   }
   
   const scheduledDate = new Date(`${body.scheduledDate}T${body.scheduledTime || '12:00'}`)
   
-  // Opprett ordre med customer info
-  const order = await prisma.order.create({
-    data: {
-      customerId: body.customerId,
-      propertyAddress: body.propertyAddress,
-      propertyType: body.propertyType || null,
-      scheduledDate,
-      priority: body.priority || 'NORMAL',
-      status: 'PENDING',
+  // Hent produkter for å beregne priser
+  const productIds = body.products.map((p: any) => p.productId)
+  const products = await prisma.product.findMany({
+    where: {
+      id: { in: productIds },
       companyId: session.user.companyId,
-      createdById: session.user.id,
-      photographerId: body.photographerId
-    },
-    include: {
-      customer: true,
-      photographer: true
+      isActive: true
     }
+  })
+  
+  if (products.length !== productIds.length) {
+    throw new ValidationError('Ett eller flere produkter er ikke tilgjengelige')
+  }
+  
+  // Beregn totaler
+  let totalAmount = 0
+  let totalPhotographerFee = 0
+  let totalPke = 0
+  let totalPki = 0
+  
+  const orderProductsData = body.products.map((item: any) => {
+    const product = products.find(p => p.id === item.productId)
+    if (!product) throw new ValidationError(`Produkt ${item.productId} ikke funnet`)
+    
+    const quantity = item.quantity || 1
+    const unitPrice = Number(product.priceExVat)
+    const lineTotal = unitPrice * quantity
+    
+    totalAmount += lineTotal
+    totalPke += Number(product.pke) * quantity
+    totalPki += Number(product.pki) * quantity
+    totalPhotographerFee += Number(product.photographerFee) * quantity
+    
+    return {
+      productId: product.id,
+      quantity,
+      unitPrice,
+      totalPrice: lineTotal
+    }
+  })
+  
+  const vatAmount = totalAmount * 0.25 // 25% MVA
+  const totalCosts = totalPke + totalPki + totalPhotographerFee
+  const companyProfit = totalAmount - totalCosts
+  
+  // Opprett ordre med produkter i en transaksjon
+  const order = await prisma.$transaction(async (tx) => {
+    // Opprett ordre
+    const newOrder = await tx.order.create({
+      data: {
+        customerId: body.customerId,
+        propertyAddress: body.propertyAddress,
+        propertyType: body.propertyType || null,
+        scheduledDate,
+        priority: body.priority || 'NORMAL',
+        status: 'PENDING',
+        companyId: session.user.companyId,
+        createdById: session.user.id,
+        photographerId: body.photographerId,
+        totalAmount,
+        vatAmount,
+        photographerFee: totalPhotographerFee,
+        companyProfit,
+        orderProducts: {
+          create: orderProductsData
+        }
+      },
+      include: {
+        customer: true,
+        photographer: true,
+        orderProducts: {
+          include: {
+            product: true
+          }
+        }
+      }
+    })
+    
+    return newOrder
   })
   
   // Send ordrebekreftelse email
   try {
+    const orderTotal = Number(order.totalAmount) + Number(order.vatAmount || 0)
+    
     await emailQueue.send({
       type: 'order-confirmation',
       to: order.customer.email,
@@ -97,11 +171,16 @@ export const POST = withErrorHandler(async (request: Request) => {
       orderNumber: order.orderNumber,
       propertyAddress: order.propertyAddress,
       scheduledDate: order.scheduledDate,
-      photographerName: order.photographer?.name
+      photographerName: order.photographer?.name,
+      totalAmount: orderTotal,
+      products: order.orderProducts.map(op => ({
+        name: op.product.name,
+        quantity: op.quantity,
+        price: Number(op.unitPrice)
+      }))
     })
   } catch (error) {
     console.error('Failed to send order confirmation email:', error)
-    // Ikke la email-feil stoppe ordre-opprettelsen
   }
   
   // Send varsel til fotograf hvis tildelt
@@ -116,7 +195,8 @@ export const POST = withErrorHandler(async (request: Request) => {
         propertyAddress: order.propertyAddress,
         scheduledDate: order.scheduledDate,
         customerName: order.customer.name,
-        customerPhone: order.customer.phone || undefined
+        customerPhone: order.customer.phone || undefined,
+        photographerFee: Number(order.photographerFee)
       })
     } catch (error) {
       console.error('Failed to send photographer notification:', error)

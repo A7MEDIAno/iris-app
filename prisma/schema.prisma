@@ -47,6 +47,15 @@ model User {
   // For kjøreplanlegging
   baseAddress     String?
   
+  // Fotograf-spesifikk data
+  availableFrom    DateTime?
+  availableTo      DateTime?
+  workingAreas     String[]  // Kommuner/områder
+  equipment        String[]  // Kamerautstyr
+  specialties      String[]  // Drone, twilight, etc
+  hourlyRate       Decimal?
+  calendarUrl      String?   // Google Calendar integration
+  
   // Relasjoner
   assignedOrders  Order[]  @relation("AssignedPhotographer")
   createdOrders   Order[]  @relation("CreatedBy")
@@ -131,6 +140,8 @@ model Product {
   name            String
   description     String?
   sku             String?
+  category        String?
+  sortOrder       Int      @default(0)
   
   // Prising
   priceExVat      Decimal
@@ -144,23 +155,16 @@ model Product {
   company         Company  @relation(fields: [companyId], references: [id])
   companyId       String
   
+  // Relasjoner
+  orderProducts   OrderProduct[]
+  
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  
+  @@index([companyId, isActive, category])
 }
-model Invoice {
-  id            String @id @default(cuid())
-  invoiceNumber Int @unique @default(autoincrement())
-  
-  customer      Customer @relation(fields: [customerId], references: [id])
-  customerId    String
-  
-  status        String @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE
-  total         Decimal @default(0)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
+
 // Order (oppdrag)
 model Order {
   id              String      @id @default(cuid())
@@ -188,11 +192,95 @@ model Order {
   propertyType    String?
   scheduledDate   DateTime
   
+  // Økonomi
+  orderProducts   OrderProduct[]
+  totalAmount     Decimal?
+  vatAmount       Decimal?
+  photographerFee Decimal?
+  companyProfit   Decimal?
+  
   // Bilder
   images          Image[]
   
+  // Faktura
+  invoice         Invoice?
+  
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+}
+
+// OrderProduct junction table
+model OrderProduct {
+  id              String   @id @default(cuid())
+  
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String
+  
+  product         Product  @relation(fields: [productId], references: [id])
+  productId       String
+  
+  quantity        Int      @default(1)
+  unitPrice       Decimal  // Pris ved bestillingstidspunkt
+  totalPrice      Decimal  // quantity * unitPrice
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([orderId, productId])
+  @@index([orderId])
+  @@index([productId])
+}
+
+// Invoice (faktura)
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber Int      @unique @default(autoincrement())
+  
+  order         Order    @relation(fields: [orderId], references: [id])
+  orderId       String   @unique
+  
+  customer      Customer @relation(fields: [customerId], references: [id])
+  customerId    String
+  
+  // Beløp
+  subtotal      Decimal
+  vatAmount     Decimal
+  total         Decimal
+  
+  // Status
+  status        String   @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
+  dueDate       DateTime
+  sentAt        DateTime?
+  paidDate      DateTime?
+  
+  // Fakturalinjer
+  lines         InvoiceLine[]
+  
+  // Integrasjon
+  externalId    String?  // Tripletex/Fiken ID
+  pdfUrl        String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([status])
+  @@index([customerId])
+}
+
+model InvoiceLine {
+  id           String   @id @default(cuid())
+  
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId    String
+  
+  description  String
+  quantity     Int
+  unitPrice    Decimal
+  totalPrice   Decimal
+  vatRate      Decimal  @default(25)
+  
+  createdAt    DateTime @default(now())
+  
+  @@index([invoiceId])
 }
 
 // Image model

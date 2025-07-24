@@ -2,9 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ImageUploader } from '../../../../components/images/ImageUploader'
-import { ImageGallery } from '../../../../components/images/ImageGallery'
-import { showToast } from '../../../../components/ui/Toast'
+import { ImageUploader } from '@/components/images/ImageUploader'
+import { ImageGallery } from '@/components/images/ImageGallery'
+import { showToast } from '@/components/ui/Toast'
+import { Package, DollarSign, TrendingUp, PieChart, Receipt, FileText, Calculator } from 'lucide-react'
+
+interface OrderProduct {
+  id: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  product: {
+    id: string
+    name: string
+    description?: string
+    category?: string
+    sku?: string
+  }
+}
 
 interface OrderDetail {
   id: string
@@ -20,9 +35,28 @@ interface OrderDetail {
     phone?: string
   }
   photographer?: {
+    id: string
     name: string
     email: string
     phone?: string
+  }
+  orderProducts: OrderProduct[]
+  totalAmount?: number
+  vatAmount?: number
+  photographerFee?: number
+  companyProfit?: number
+  calculations?: {
+    subtotal: number
+    vatAmount: number
+    totalIncVat: number
+    photographerFee: number
+    companyProfit: number
+    profitMargin: number
+  }
+  invoice?: {
+    id: string
+    invoiceNumber: number
+    status: string
   }
   images: Array<{
     id: string
@@ -54,10 +88,13 @@ export default function OrderDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [availableTags, setAvailableTags] = useState<any[]>([])
   const [selectedImages, setSelectedImages] = useState<any[]>([])
+  const [photographers, setPhotographers] = useState<any[]>([])
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false)
 
   useEffect(() => {
     loadOrder()
     loadTags()
+    loadPhotographers()
   }, [params.id])
 
   async function loadOrder() {
@@ -90,33 +127,91 @@ export default function OrderDetailPage() {
     }
   }
 
-  async function updateOrderStatus(newStatus: string) {
+  async function loadPhotographers() {
+    try {
+      const res = await fetch('/api/users?role=PHOTOGRAPHER')
+      if (res.ok) {
+        const data = await res.json()
+        setPhotographers(data.users || [])
+      }
+    } catch (error) {
+      console.error('Error loading photographers:', error)
+    }
+  }
+
+  async function updateOrder(updates: any) {
     try {
       const res = await fetch(`/api/orders/${params.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(updates)
       })
 
-      if (!res.ok) throw new Error('Failed to update status')
+      if (!res.ok) throw new Error('Failed to update order')
       
       await loadOrder()
-      showToast({
-        type: 'success',
-        title: 'Status oppdatert',
-        message: `Ordre status endret til ${getStatusLabel(newStatus)}`
-      })
+      
+      if (updates.status) {
+        showToast({
+          type: 'success',
+          title: 'Status oppdatert',
+          message: `Ordre status endret til ${getStatusLabel(updates.status)}`
+        })
+      }
+      if (updates.photographerId !== undefined) {
+        showToast({
+          type: 'success',
+          title: 'Fotograf oppdatert',
+          message: updates.photographerId ? 'Fotograf tildelt' : 'Fotograf fjernet'
+        })
+      }
     } catch (error) {
       showToast({
         type: 'error',
-        title: 'Kunne ikke oppdatere status',
+        title: 'Kunne ikke oppdatere',
         message: 'Prøv igjen senere'
       })
     }
   }
 
+  async function createInvoice() {
+    if (!order) return
+    
+    setIsCreatingInvoice(true)
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id })
+      })
+      
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.message || 'Kunne ikke opprette faktura')
+      }
+      
+      const invoice = await res.json()
+      
+      showToast({
+        type: 'success',
+        title: 'Faktura opprettet',
+        message: `Faktura #${invoice.invoiceNumber} er opprettet`
+      })
+      
+      router.push(`/invoices/${invoice.id}`)
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Kunne ikke opprette faktura',
+        message: error instanceof Error ? error.message : 'Prøv igjen senere'
+      })
+    } finally {
+      setIsCreatingInvoice(false)
+    }
+  }
+
   async function handleImageUpload(uploadedImages: any[]) {
-    await loadOrder() // Refresh order data
+    await loadOrder()
   }
 
   async function handleTagUpdate(imageId: string, tagIds: string[]) {
@@ -146,9 +241,7 @@ export default function OrderDetailPage() {
         throw new Error(errorData.error || 'Failed to delete image')
       }
       
-      await loadOrder() // Refresh order data
-      
-      // Fjern fra selectedImages hvis den var valgt
+      await loadOrder()
       setSelectedImages(prev => prev.filter(img => img.id !== imageId))
     } catch (error: any) {
       console.error('Error deleting image:', error)
@@ -243,6 +336,22 @@ export default function OrderDetailPage() {
     return colors[status] || 'bg-gray-900/20 text-gray-400 border-gray-800'
   }
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('nb-NO', {
+      style: 'currency',
+      currency: 'NOK',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+
+  const getProfitColor = (margin: number) => {
+    if (margin < 0) return 'text-red-500'
+    if (margin < 20) return 'text-yellow-500'
+    if (margin < 40) return 'text-blue-500'
+    return 'text-green-500'
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -266,9 +375,42 @@ export default function OrderDetailPage() {
 
   const tabs = [
     { id: 'overview', label: 'Oversikt', icon: '📋' },
+    { id: 'economy', label: 'Økonomi', icon: '💰' },
     { id: 'images', label: 'Bilder', icon: '📸', count: order.images.length },
     { id: 'delivery', label: 'Levering', icon: '📦' },
     { id: 'activity', label: 'Aktivitet', icon: '📝' }
+  ]
+
+  // Beregn kostnadsprosenter for visualisering
+  const costs = order.calculations || {
+    subtotal: 0,
+    vatAmount: 0,
+    totalIncVat: 0,
+    photographerFee: 0,
+    companyProfit: 0,
+    profitMargin: 0
+  }
+
+  const totalCosts = costs.photographerFee + (costs.subtotal - costs.companyProfit - costs.photographerFee)
+  const costBreakdown = [
+    { 
+      label: 'Fotografhonorar', 
+      amount: costs.photographerFee, 
+      percentage: costs.subtotal > 0 ? (costs.photographerFee / costs.subtotal) * 100 : 0,
+      color: 'bg-blue-500'
+    },
+    { 
+      label: 'Andre kostnader', 
+      amount: totalCosts - costs.photographerFee, 
+      percentage: costs.subtotal > 0 ? ((totalCosts - costs.photographerFee) / costs.subtotal) * 100 : 0,
+      color: 'bg-purple-500'
+    },
+    { 
+      label: 'Fortjeneste', 
+      amount: costs.companyProfit, 
+      percentage: costs.profitMargin,
+      color: costs.companyProfit >= 0 ? 'bg-green-500' : 'bg-red-500'
+    }
   ]
 
   return (
@@ -288,6 +430,11 @@ export default function OrderDetailPage() {
           <span className={`status-badge ${getStatusColor(order.status)}`}>
             {getStatusLabel(order.status)}
           </span>
+          {order.invoice && (
+            <span className="text-sm text-gray-400">
+              Faktura #{order.invoice.invoiceNumber}
+            </span>
+          )}
         </div>
         
         <div className="flex items-center gap-6 text-sm text-gray-400">
@@ -304,6 +451,12 @@ export default function OrderDetailPage() {
             </svg>
             {new Date(order.scheduledDate).toLocaleDateString('nb-NO')}
           </div>
+          {costs.totalIncVat > 0 && (
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              {formatCurrency(costs.totalIncVat)}
+            </div>
+          )}
         </div>
       </div>
 
@@ -347,7 +500,7 @@ export default function OrderDetailPage() {
                     <dd className="mt-1">
                       <select
                         value={order.status}
-                        onChange={(e) => updateOrderStatus(e.target.value)}
+                        onChange={(e) => updateOrder({ status: e.target.value })}
                         className="input-field"
                       >
                         <option value="PENDING">Venter</option>
@@ -401,26 +554,198 @@ export default function OrderDetailPage() {
               {/* Photographer info */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-200 mb-4">Fotograf</h3>
-                {order.photographer ? (
-                  <dl className="space-y-3">
-                    <div>
-                      <dt className="text-sm text-gray-500">Navn</dt>
-                      <dd className="text-gray-200">{order.photographer.name}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm text-gray-500">E-post</dt>
-                      <dd className="text-gray-200">{order.photographer.email}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm text-gray-500">Telefon</dt>
-                      <dd className="text-gray-200">{order.photographer.phone || 'Ikke oppgitt'}</dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <p className="text-gray-500">Ingen fotograf tildelt</p>
-                )}
+                <div>
+                  <select
+                    value={order.photographer?.id || ''}
+                    onChange={(e) => updateOrder({ photographerId: e.target.value || null })}
+                    className="input-field w-full mb-3"
+                  >
+                    <option value="">Ingen fotograf tildelt</option>
+                    {photographers.map((photographer) => (
+                      <option key={photographer.id} value={photographer.id}>
+                        {photographer.name}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {order.photographer && (
+                    <dl className="space-y-3">
+                      <div>
+                        <dt className="text-sm text-gray-500">E-post</dt>
+                        <dd className="text-gray-200">{order.photographer.email}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm text-gray-500">Telefon</dt>
+                        <dd className="text-gray-200">{order.photographer.phone || 'Ikke oppgitt'}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Economy tab */}
+        {activeTab === 'economy' && (
+          <div className="p-6">
+            {order.orderProducts && order.orderProducts.length > 0 ? (
+              <div className="space-y-8">
+                {/* Produktliste */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                    <Package className="w-5 h-5 mr-2 text-nordvik-400" />
+                    Bestilte produkter
+                  </h3>
+                  <div className="bg-dark-800 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-dark-700">
+                          <th className="text-left p-4 text-sm font-medium text-gray-400">Produkt</th>
+                          <th className="text-center p-4 text-sm font-medium text-gray-400">Antall</th>
+                          <th className="text-right p-4 text-sm font-medium text-gray-400">Pris/stk</th>
+                          <th className="text-right p-4 text-sm font-medium text-gray-400">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {order.orderProducts.map((item) => (
+                          <tr key={item.id} className="border-b border-dark-700 last:border-0">
+                            <td className="p-4">
+                              <div>
+                                <p className="font-medium text-gray-200">{item.product.name}</p>
+                                {item.product.description && (
+                                  <p className="text-sm text-gray-500 mt-1">{item.product.description}</p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="text-center p-4 text-gray-300">{item.quantity}</td>
+                            <td className="text-right p-4 text-gray-300">
+                              {formatCurrency(Number(item.unitPrice))}
+                            </td>
+                            <td className="text-right p-4 font-medium text-gray-200">
+                              {formatCurrency(Number(item.totalPrice))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Økonomisk oversikt */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Totaler */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                      <Calculator className="w-5 h-5 mr-2 text-nordvik-400" />
+                      Prissammendrag
+                    </h3>
+                    <div className="bg-dark-800 rounded-lg p-6 space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Sum eks. MVA</span>
+                        <span className="text-gray-200">{formatCurrency(costs.subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">MVA (25%)</span>
+                        <span className="text-gray-400">{formatCurrency(costs.vatAmount)}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold text-lg pt-3 border-t border-dark-700">
+                        <span className="text-gray-100">Total inkl. MVA</span>
+                        <span className="text-gray-100">{formatCurrency(costs.totalIncVat)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fortjeneste */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                      <TrendingUp className="w-5 h-5 mr-2 text-nordvik-400" />
+                      Fortjeneste-analyse
+                    </h3>
+                    <div className="bg-dark-800 rounded-lg p-6 space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Inntekt</span>
+                        <span className="text-gray-200">{formatCurrency(costs.subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">- Fotografhonorar</span>
+                        <span className="text-gray-400">-{formatCurrency(costs.photographerFee)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">- Andre kostnader</span>
+                        <span className="text-gray-400">-{formatCurrency(totalCosts - costs.photographerFee)}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold text-lg pt-3 border-t border-dark-700">
+                        <span className={getProfitColor(costs.profitMargin)}>Fortjeneste</span>
+                        <div className="text-right">
+                          <p className={getProfitColor(costs.profitMargin)}>
+                            {formatCurrency(costs.companyProfit)}
+                          </p>
+                          <p className={`text-sm ${getProfitColor(costs.profitMargin)}`}>
+                            {costs.profitMargin.toFixed(1)}% margin
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kostnadsfordeling */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                    <PieChart className="w-5 h-5 mr-2 text-nordvik-400" />
+                    Kostnadsfordeling
+                  </h3>
+                  <div className="bg-dark-800 rounded-lg p-6">
+                    <div className="space-y-4">
+                      {costBreakdown.map((item, index) => (
+                        <div key={index}>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-400">{item.label}</span>
+                            <span className="text-sm text-gray-300">
+                              {formatCurrency(item.amount)} ({item.percentage.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="w-full bg-dark-700 rounded-full h-2">
+                            <div
+                              className={`${item.color} h-2 rounded-full transition-all`}
+                              style={{ width: `${Math.abs(item.percentage)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Faktura-knapp */}
+                <div className="flex justify-end">
+                  {order.invoice ? (
+                    <button
+                      className="btn-primary flex items-center gap-2"
+                      onClick={() => router.push(`/invoices/${order.invoice?.id}`)}
+                    >
+                      <Receipt className="w-4 h-4" />
+                      Se faktura #{order.invoice.invoiceNumber}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-primary flex items-center gap-2"
+                      onClick={createInvoice}
+                      disabled={isCreatingInvoice}
+                    >
+                      <Receipt className="w-4 h-4" />
+                      {isCreatingInvoice ? 'Oppretter faktura...' : 'Generer faktura'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500">Ingen produkter på denne ordren</p>
+              </div>
+            )}
           </div>
         )}
 
