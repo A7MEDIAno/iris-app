@@ -2,32 +2,6 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { withErrorHandler, ValidationError } from '@/lib/errors'
-import { z } from 'zod'
-
-// Valideringsskjema
-const createCustomerSchema = z.object({
-  name: z.string().min(2, 'Navn må være minst 2 tegn'),
-  email: z.string().email('Ugyldig e-postadresse'),
-  phone: z.string().optional(),
-  orgNumber: z.string().optional(),
-  invoiceEmail: z.string().email().optional().or(z.literal('')),
-  invoiceAddress: z.string().optional(),
-  invoiceZip: z.string().optional(),
-  invoiceCity: z.string().optional(),
-  deliveryAddress: z.string().optional(),
-  deliveryZip: z.string().optional(),
-  deliveryCity: z.string().optional(),
-  notes: z.string().optional(),
-  paymentTerms: z.number().min(0).max(90).default(14),
-  creditLimit: z.number().min(0).optional(),
-  contactPersons: z.array(z.object({
-    name: z.string().min(2),
-    email: z.string().email(),
-    phone: z.string().optional(),
-    role: z.string().optional(),
-    isPrimary: z.boolean().default(false)
-  })).optional()
-})
 
 // GET /api/customers
 export const GET = withErrorHandler(async (request: Request) => {
@@ -114,32 +88,57 @@ export const POST = withErrorHandler(async (request: Request) => {
 
   const body = await request.json()
   
-  // Valider input
-  const validatedData = createCustomerSchema.parse(body)
+  // Manuell validering istedenfor Zod
+  if (!body.name || body.name.length < 2) {
+    throw new ValidationError('Navn må være minst 2 tegn')
+  }
+  
+  if (!body.email || !body.email.includes('@')) {
+    throw new ValidationError('Ugyldig e-postadresse')
+  }
+  
+  // Sett default verdier
+  const customerData = {
+    name: body.name,
+    email: body.email,
+    phone: body.phone || null,
+    orgNumber: body.orgNumber || null,
+    invoiceEmail: body.invoiceEmail || body.email,
+    invoiceAddress: body.invoiceAddress || null,
+    invoiceZip: body.invoiceZip || null,
+    invoiceCity: body.invoiceCity || null,
+    deliveryAddress: body.deliveryAddress || null,
+    deliveryZip: body.deliveryZip || null,
+    deliveryCity: body.deliveryCity || null,
+    notes: body.notes || null,
+    paymentTerms: body.paymentTerms || 14,
+    creditLimit: body.creditLimit || 0,
+    companyId: session.user.companyId
+  }
   
   // Sjekk for duplikater
   const existing = await prisma.customer.findFirst({
     where: {
       companyId: session.user.companyId,
       OR: [
-        { email: validatedData.email },
-        ...(validatedData.orgNumber ? [{ orgNumber: validatedData.orgNumber }] : [])
+        { email: customerData.email },
+        ...(customerData.orgNumber ? [{ orgNumber: customerData.orgNumber }] : [])
       ]
     }
   })
 
   if (existing) {
     throw new ValidationError(
-      existing.email === validatedData.email 
+      existing.email === customerData.email 
         ? 'En kunde med denne e-postadressen eksisterer allerede'
         : 'En kunde med dette organisasjonsnummeret eksisterer allerede'
     )
   }
 
   // Valider organisasjonsnummer hvis oppgitt
-  if (validatedData.orgNumber) {
-    const isValidOrgNumber = await validateOrgNumber(validatedData.orgNumber)
-    if (!isValidOrgNumber) {
+  if (customerData.orgNumber) {
+    const cleanedNumber = customerData.orgNumber.replace(/\s/g, '')
+    if (!/^\d{9}$/.test(cleanedNumber)) {
       throw new ValidationError('Ugyldig organisasjonsnummer')
     }
   }
@@ -148,34 +147,25 @@ export const POST = withErrorHandler(async (request: Request) => {
   const customer = await prisma.$transaction(async (tx) => {
     // Opprett kunde
     const newCustomer = await tx.customer.create({
-      data: {
-        name: validatedData.name,
-        email: validatedData.email,
-        phone: validatedData.phone,
-        orgNumber: validatedData.orgNumber,
-        invoiceEmail: validatedData.invoiceEmail || validatedData.email,
-        invoiceAddress: validatedData.invoiceAddress,
-        invoiceZip: validatedData.invoiceZip,
-        invoiceCity: validatedData.invoiceCity,
-        deliveryAddress: validatedData.deliveryAddress,
-        deliveryZip: validatedData.deliveryZip,
-        deliveryCity: validatedData.deliveryCity,
-        notes: validatedData.notes,
-        paymentTerms: validatedData.paymentTerms,
-        creditLimit: validatedData.creditLimit,
-        companyId: session.user.companyId
-      }
+      data: customerData
     })
 
     // Opprett kontaktpersoner hvis oppgitt
-    if (validatedData.contactPersons && validatedData.contactPersons.length > 0) {
-      await tx.contactPerson.createMany({
-        data: validatedData.contactPersons.map((contact, index) => ({
-          ...contact,
-          customerId: newCustomer.id,
-          isPrimary: index === 0 // Første kontakt er primary
-        }))
-      })
+    if (body.contactPersons && Array.isArray(body.contactPersons) && body.contactPersons.length > 0) {
+      const validContactPersons = body.contactPersons.filter((c: any) => c.name && c.email)
+      
+      if (validContactPersons.length > 0) {
+        await tx.contactPerson.createMany({
+          data: validContactPersons.map((contact: any, index: number) => ({
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone || null,
+            role: contact.role || null,
+            customerId: newCustomer.id,
+            isPrimary: index === 0
+          }))
+        })
+      }
     }
 
     // Hent kunde med relasjoner
@@ -187,29 +177,5 @@ export const POST = withErrorHandler(async (request: Request) => {
     })
   })
 
-  // Send velkomst-epost
-  try {
-    await sendWelcomeEmail(customer)
-  } catch (error) {
-    console.error('Failed to send welcome email:', error)
-    // Ikke la email-feil stoppe kunde-opprettelsen
-  }
-
   return NextResponse.json(customer, { status: 201 })
 })
-
-// Hjelpefunksjoner
-async function validateOrgNumber(orgNumber: string): Promise<boolean> {
-  // Enkel validering - kan utvides med Brreg API
-  const cleanedNumber = orgNumber.replace(/\s/g, '')
-  return /^\d{9}$/.test(cleanedNumber)
-}
-
-async function sendWelcomeEmail(customer: any) {
-  // Implementer email-sending med din email queue
-  // await emailQueue.send({
-  //   type: 'customer-welcome',
-  //   to: customer.email,
-  //   ...
-  // })
-}
