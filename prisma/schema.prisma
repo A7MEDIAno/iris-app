@@ -202,8 +202,9 @@ model Order {
   // Bilder
   images          Image[]
   
-  // Faktura
-  invoice         Invoice?
+  // Faktura (kan være på samme faktura som andre ordre)
+  invoice         Invoice?    @relation(fields: [invoiceId], references: [id])
+  invoiceId       String?
   
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -235,8 +236,8 @@ model Invoice {
   id            String   @id @default(cuid())
   invoiceNumber Int      @unique @default(autoincrement())
   
-  order         Order    @relation(fields: [orderId], references: [id])
-  orderId       String   @unique
+  // Relasjoner
+  orders        Order[]  // En faktura kan ha mange ordre
   
   customer      Customer @relation(fields: [customerId], references: [id])
   customerId    String
@@ -251,6 +252,11 @@ model Invoice {
   dueDate       DateTime
   sentAt        DateTime?
   paidDate      DateTime?
+  
+  // For periode-fakturaer
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  orderCount    Int?
   
   // Fakturalinjer
   lines         InvoiceLine[]

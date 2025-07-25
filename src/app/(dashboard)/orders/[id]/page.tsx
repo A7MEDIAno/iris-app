@@ -718,27 +718,6 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
 
-                {/* Faktura-knapp */}
-                <div className="flex justify-end">
-                  {order.invoice ? (
-                    <button
-                      className="btn-primary flex items-center gap-2"
-                      onClick={() => router.push(`/invoices/${order.invoice?.id}`)}
-                    >
-                      <Receipt className="w-4 h-4" />
-                      Se faktura #{order.invoice.invoiceNumber}
-                    </button>
-                  ) : (
-                    <button
-                      className="btn-primary flex items-center gap-2"
-                      onClick={createInvoice}
-                      disabled={isCreatingInvoice}
-                    >
-                      <Receipt className="w-4 h-4" />
-                      {isCreatingInvoice ? 'Oppretter faktura...' : 'Generer faktura'}
-                    </button>
-                  )}
-                </div>
               </div>
             ) : (
               <div className="text-center py-12">

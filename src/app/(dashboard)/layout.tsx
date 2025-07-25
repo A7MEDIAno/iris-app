@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ToastContainer } from '../../components/ui/Toast'
+import { ToastContainer } from '@/components/ui/Toast'
 
 export default function DashboardLayout({
   children,
@@ -12,19 +12,20 @@ export default function DashboardLayout({
   const pathname = usePathname()
 
   const navigation = [
-    { name: 'Oversikt', href: '/dashboard', icon: '📊' },
-    { name: 'Bestillinger', href: '/orders', icon: '📷' },
+    { name: 'Dashboard', href: '/', icon: '📊' },
+    { name: 'Ordre', href: '/orders', icon: '📷' },
     { name: 'Kunder', href: '/customers', icon: '🏢' },
     { name: 'Fotografer', href: '/photographers', icon: '👥' },
     { name: 'Produkter', href: '/products', icon: '📦' },
-    { name: 'Faktura', href: '/invoices', icon: '💰' },
-    { name: 'Statistikk', href: '/analytics', icon: '📈' },
-    { name: 'Innstillinger', href: '/settings', icon: '⚙️' },
+    { name: 'Fakturaer', href: '/invoices', icon: '💰' },
+    // Kommenter ut disse til de er implementert:
+    // { name: 'Statistikk', href: '/analytics', icon: '📈' },
+    // { name: 'Innstillinger', href: '/settings', icon: '⚙️' },
   ]
 
   return (
     <div className="flex h-screen bg-dark-950">
-      {/* Sidebar - samme som før */}
+      {/* Sidebar */}
       <div className="w-64 sidebar">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-nordvik-400">IRiS</h1>
