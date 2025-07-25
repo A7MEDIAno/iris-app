@@ -1,19 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // LEGG TIL DENNE - Viktig for SaaS
-  output: 'standalone',
-  
-  eslint: {
-    ignoreDuringBuilds: true, // ⚠️ Bør fikses på sikt
-  },
-  typescript: {
-    ignoreBuildErrors: true, // ⚠️ Bør fikses på sikt
-  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb'
     }
   },
+  
   images: {
     remotePatterns: [
       {
@@ -23,19 +15,35 @@ const nextConfig = {
     ],
   },
   
-  // LEGG TIL DETTE - Forhindrer caching av API routes
+  // Sikkerhetshoder
   async headers() {
     return [
       {
-        source: '/api/:path*',
+        source: '/:path*',
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'no-store, must-revalidate',
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
           },
         ],
       },
     ]
+  },
+  
+  // Hvis du fortsatt får build-feil, legg til dette midlertidig:
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 }
 

@@ -1,64 +1,64 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import * as jose from 'jose'
 
-// Paths som krever autentisering
-const protectedPaths = [
-  '/dashboard',
-  '/orders',
-  '/customers',
-  '/photographers',
-  '/products',
-  '/settings',
-  '/analytics',
-  '/invoices'
-]
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-// API routes som ikke krever auth
-const publicApiRoutes = [
-  '/api/auth/login',
-  '/api/auth/register',
-  '/api/placeholder-image'
-]
-
-export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
+  // Offentlige routes som ikke trenger auth
+  const publicPaths = [
+    '/login', 
+    '/register', 
+    '/api/auth/login', 
+    '/api/auth/register',
+    '/api/debug',
+    '/api/test-db'
+  ]
   
-  // Sjekk om dette er en beskyttet path
-  const isProtectedPath = protectedPaths.some(p => path.startsWith(p))
-  const isProtectedApi = path.startsWith('/api/') && 
-    !publicApiRoutes.some(r => path.startsWith(r))
-
-  if (isProtectedPath || isProtectedApi) {
-    const token = request.cookies.get('auth-token')
-    
-    if (!token) {
-      // For API routes, returner 401
-      if (path.startsWith('/api/')) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        )
-      }
-      
-      // For pages, redirect til login
-      const url = new URL('/login', request.url)
-      url.searchParams.set('callbackUrl', path)
-      return NextResponse.redirect(url)
-    }
+  if (publicPaths.some(path => pathname.startsWith(path))) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next()
+  // Sjekk auth for beskyttede routes
+  const token = request.cookies.get('auth-token')
+  
+  if (!token) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET!)
+    const { payload } = await jose.jwtVerify(token.value, secret)
+    
+    // Legg til brukerinfo i headers
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-user-id', payload.userId as string)
+    requestHeaders.set('x-user-role', payload.role as string)
+    requestHeaders.set('x-user-company-id', payload.companyId as string)
+    
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      }
+    })
+  } catch (error) {
+    console.error('JWT verification failed:', error)
+    
+    // Slett ugyldig token
+    const response = pathname.startsWith('/api/')
+      ? NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+      : NextResponse.redirect(new URL('/login', request.url))
+    
+    response.cookies.delete('auth-token')
+    return response
+  }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

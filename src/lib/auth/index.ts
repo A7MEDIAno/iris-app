@@ -1,115 +1,68 @@
-import { prisma } from '../db/prisma'
-import { cookies } from 'next/headers'
-import jwt from 'jsonwebtoken'
-import bcrypt from 'bcryptjs'
-import { env } from '../config/env'
+import { headers } from 'next/headers'
+import { prisma } from '@/lib/db/prisma'
 
-export type SessionUser = {
-  id: string
-  email: string
-  name: string
-  role: string
-  companyId: string
-}
-
-export type Session = {
-  user: SessionUser
-  expires: string
-}
-
-// Opprett JWT token
-function createToken(user: SessionUser): string {
-  return jwt.sign(
-    { 
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      companyId: user.companyId
-    },
-    env.NEXTAUTH_SECRET,
-    { expiresIn: '7d' }
-  )
-}
-
-// Verifiser JWT token
-function verifyToken(token: string): SessionUser | null {
-  try {
-    const decoded = jwt.verify(token, env.NEXTAUTH_SECRET) as SessionUser
-    return decoded
-  } catch {
-    return null
+export interface AuthSession {
+  user: {
+    id: string
+    role: string
+    companyId: string
   }
 }
 
-// Login funksjon
-export async function login(email: string, password: string) {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: { company: true }
-  })
-
-  if (!user) {
-    throw new Error('Invalid credentials')
-  }
-
-  const isValid = await bcrypt.compare(password, user.password)
-  if (!isValid) {
-    throw new Error('Invalid credentials')
-  }
-
-  const sessionUser: SessionUser = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    companyId: user.companyId
-  }
-
-  const token = createToken(sessionUser)
+// Hent session fra middleware headers
+export async function getSession(): Promise<AuthSession | null> {
+  const headersList = headers()
   
-  // Sett cookie
-  cookies().set('auth-token', token, {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 dager
-    path: '/'
-  })
-
-  return sessionUser
-}
-
-// Logout funksjon
-export async function logout() {
-  cookies().delete('auth-token')
-}
-
-// Hent current session
-export async function getSession(): Promise<Session | null> {
-  try {
-    const token = cookies().get('auth-token')?.value
-    if (!token) return null
-
-    const user = verifyToken(token)
-    if (!user) return null
-
-    return {
-      user,
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    }
-  } catch {
+  const userId = headersList.get('x-user-id')
+  const role = headersList.get('x-user-role')
+  const companyId = headersList.get('x-user-company-id')
+  
+  if (!userId || !role || !companyId) {
     return null
+  }
+  
+  return {
+    user: {
+      id: userId,
+      role: role,
+      companyId: companyId
+    }
   }
 }
 
-// Krev autentisering
-export async function requireAuth(): Promise<Session> {
+// For API routes - kaster error hvis ikke autentisert
+export async function requireAuth(): Promise<AuthSession> {
   const session = await getSession()
   if (!session) {
     throw new Error('Unauthorized')
   }
   return session
+}
+
+// Hent full brukerinfo når nødvendig
+export async function getCurrentUser() {
+  const session = await getSession()
+  if (!session) return null
+  
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      profileImage: true,
+      title: true,
+      company: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  })
+  
+  return user
 }
 
 // Hent brukerens company
@@ -119,15 +72,5 @@ export async function getCurrentCompany() {
 
   return prisma.company.findUnique({
     where: { id: session.user.companyId }
-  })
-}
-
-// Hent current user
-export async function getCurrentUser() {
-  const session = await getSession()
-  if (!session) return null
-
-  return prisma.user.findUnique({
-    where: { id: session.user.id }
   })
 }

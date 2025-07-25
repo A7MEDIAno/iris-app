@@ -1,8 +1,12 @@
 // Denne filen gjør ALLE API routes dynamiske
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs' // eller 'edge' hvis du vil bruke Edge Runtime
+export const runtime = 'nodejs'
 
-// Tom handler siden dette bare er config
+// Dummy route handler
 export async function GET() {
-  return new Response('API root', { status: 200 })
+  return Response.json({ 
+    name: 'IRIS API',
+    version: '1.0.0',
+    status: 'operational' 
+  })
 }

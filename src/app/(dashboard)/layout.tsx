@@ -33,21 +33,22 @@ export default function DashboardLayout({
   }, [])
 
   async function loadSession() {
-    try {
-      const res = await fetch('/api/auth/session')
-      if (!res.ok) {
-        router.push('/login')
-        return
-      }
-      const data = await res.json()
-      setSession(data)
-    } catch (error) {
-      console.error('Failed to load session:', error)
+  try {
+    const res = await fetch('/api/auth/session')
+    if (!res.ok) {
+      // Middleware vil automatisk redirecte, så dette bør ikke skje
       router.push('/login')
-    } finally {
-      setIsLoading(false)
+      return
     }
+    const data = await res.json()
+    setSession(data)
+  } catch (error) {
+    console.error('Failed to load session:', error)
+    router.push('/login')
+  } finally {
+    setIsLoading(false)
   }
+}
 
   async function handleLogout() {
     try {
