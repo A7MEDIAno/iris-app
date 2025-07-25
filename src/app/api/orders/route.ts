@@ -12,9 +12,17 @@ export const GET = withErrorHandler(async (request: Request) => {
   const limit = parseInt(searchParams.get('limit') || '20')
   const skip = (page - 1) * limit
 
+  // Tilgangskontroll - Admin ser alle, fotografer ser kun sine
+  const where = session.user.role === 'ADMIN' 
+    ? { companyId: session.user.companyId }
+    : { 
+        companyId: session.user.companyId,
+        photographerId: session.user.id 
+      }
+
   const [orders, total] = await prisma.$transaction([
     prisma.order.findMany({
-      where: { companyId: session.user.companyId },
+      where, // Bruker where-variabelen her
       skip,
       take: limit,
       include: {
@@ -35,7 +43,7 @@ export const GET = withErrorHandler(async (request: Request) => {
       orderBy: { createdAt: 'desc' }
     }),
     prisma.order.count({
-      where: { companyId: session.user.companyId }
+      where // Også her for riktig total
     })
   ])
   
@@ -63,6 +71,7 @@ export const GET = withErrorHandler(async (request: Request) => {
   })
 })
 
+// POST endpoint forblir uendret
 export const POST = withErrorHandler(async (request: Request) => {
   const session = await requireAuth()
   const body = await request.json()

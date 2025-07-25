@@ -41,20 +41,23 @@ model User {
   password        String
   role            UserRole @default(PHOTOGRAPHER)
   
+  // Ny profil-info
+  title           String?  // "Fotograf", "Seniorfotograf", etc
+  profileImage    String?  // URL til profilbilde
+  bio             String?  // Kort beskrivelse
+  
+  // Google Calendar
+  googleCalendarId     String?  // Google Calendar ID
+  googleRefreshToken   String?  // For å fornye tilgang
+  googleAccessToken    String?  // Midlertidig token
+  googleTokenExpiry    DateTime? // Når token utløper
+  calendarSyncEnabled  Boolean @default(false)
+  
   company         Company  @relation(fields: [companyId], references: [id])
   companyId       String
   
   // For kjøreplanlegging
   baseAddress     String?
-  
-  // Fotograf-spesifikk data
-  availableFrom    DateTime?
-  availableTo      DateTime?
-  workingAreas     String[]  // Kommuner/områder
-  equipment        String[]  // Kamerautstyr
-  specialties      String[]  // Drone, twilight, etc
-  hourlyRate       Decimal?
-  calendarUrl      String?   // Google Calendar integration
   
   // Relasjoner
   assignedOrders  Order[]  @relation("AssignedPhotographer")

@@ -11,11 +11,20 @@ export const GET = withErrorHandler(async (
 ) => {
   const session = await requireAuth()
 
+  // Tilgangskontroll
+  const where = session.user.role === 'ADMIN'
+    ? { 
+        id: params.id,
+        companyId: session.user.companyId
+      }
+    : {
+        id: params.id,
+        companyId: session.user.companyId,
+        photographerId: session.user.id // Fotograf må være tildelt
+      }
+
   const order = await prisma.order.findFirst({
-    where: { 
-      id: params.id,
-      companyId: session.user.companyId
-    },
+    where,
     include: {
       customer: true,
       photographer: true,
@@ -40,6 +49,7 @@ export const GET = withErrorHandler(async (
     throw new NotFoundError('Ordre ikke funnet')
   }
 
+  // Resten av koden forblir uendret...
   // Beregn ekstra info for frontend
   const orderWithCalculations = {
     ...order,
