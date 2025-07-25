@@ -179,3 +179,5 @@ export const POST = withErrorHandler(async (request: Request) => {
 
   return NextResponse.json(customer, { status: 201 })
 })
+
+export const dynamic = 'force-dynamic'

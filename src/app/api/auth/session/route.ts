@@ -26,3 +26,5 @@ export const GET = withErrorHandler(async () => {
     user
   })
 })
+
+export const dynamic = 'force-dynamic'

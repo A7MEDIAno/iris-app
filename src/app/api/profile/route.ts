@@ -55,3 +55,5 @@ export const PATCH = withErrorHandler(async (request: Request) => {
   
   return NextResponse.json(updated)
 })
+
+export const dynamic = 'force-dynamic'

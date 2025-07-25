@@ -39,3 +39,5 @@ export const GET = withErrorHandler(async (request: Request) => {
   
   return NextResponse.json({ orders })
 })
+
+export const dynamic = 'force-dynamic'

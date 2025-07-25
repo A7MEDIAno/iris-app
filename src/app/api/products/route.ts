@@ -120,3 +120,5 @@ export const POST = withErrorHandler(async (request: Request) => {
     profitMargin
   }, { status: 201 })
 })
+
+export const dynamic = 'force-dynamic'

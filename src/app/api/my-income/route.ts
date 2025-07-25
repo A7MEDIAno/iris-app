@@ -51,3 +51,5 @@ export const GET = withErrorHandler(async (request: Request) => {
     }))
   })
 })
+
+export const dynamic = 'force-dynamic'
