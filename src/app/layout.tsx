@@ -6,27 +6,4 @@ export const metadata: Metadata = {
   description: "Profesjonell boligfotografering for moderne meglere",
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
-  return (
-    <html lang="no">
-      <body className="antialiased">
-        {children}
-      </body>
-    </html>
-  )
-}
 
-// Dette gjør ALLE API routes dynamiske
-export const dynamic = 'force-dynamic'
-
-export default function ApiLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return children
-}
