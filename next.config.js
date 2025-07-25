@@ -1,17 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // LEGG TIL DENNE - Viktig for SaaS
+  output: 'standalone',
+  
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // ⚠️ Bør fikses på sikt
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: true, // ⚠️ Bør fikses på sikt
   },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb'
     }
   },
-  // Hvis du bruker Vercel
   images: {
     remotePatterns: [
       {
@@ -19,7 +21,22 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-  }
+  },
+  
+  // LEGG TIL DETTE - Forhindrer caching av API routes
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
